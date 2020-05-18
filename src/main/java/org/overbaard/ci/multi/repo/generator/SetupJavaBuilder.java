@@ -1,4 +1,4 @@
-package org.overbaard.ci.multi.repo;
+package org.overbaard.ci.multi.repo.generator;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;

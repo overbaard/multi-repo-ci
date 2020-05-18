@@ -1,4 +1,4 @@
-package org.overbaard.ci.multi.repo;
+package org.overbaard.ci.multi.repo.generator;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

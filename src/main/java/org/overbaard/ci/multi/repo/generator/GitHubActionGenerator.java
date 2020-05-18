@@ -1,5 +1,7 @@
-package org.overbaard.ci.multi.repo;
+package org.overbaard.ci.multi.repo.generator;
 
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.overbaard.ci.multi.repo.Main;
+import org.overbaard.ci.multi.repo.Usage;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
 import org.overbaard.ci.multi.repo.config.component.JobConfig;
@@ -21,6 +25,7 @@ import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.config.trigger.Component;
+import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -28,6 +33,14 @@ import org.yaml.snakeyaml.Yaml;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class GitHubActionGenerator {
+    public static final String GENERATE_WORKFLOW = "generate-workflow";
+
+    private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
+    private static final String ARG_YAML = "--yaml";
+    private static final String ARG_ISSUE = "--issue";
+    private static final String ARG_BRANCH = "--branch";
+
+
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
     static final String PROJECT_VERSIONS_DIRECTORY = ".project_versions";
     static final Path COMPONENT_JOBS_DIR = Paths.get(".repo-config/component-jobs");
@@ -44,18 +57,98 @@ public class GitHubActionGenerator {
         this.yamlConfig = yamlConfig;
         this.branchName = branchName;
         this.issueNumber = issueNumber;
-
     }
 
-    static GitHubActionGenerator create(Path workflowDir, Path yamlConfig, String branchName, String issueNumber) {
+    public Path getYamlConfig() {
+        return yamlConfig;
+    }
+
+    public static void generate(String[] args) throws Exception {
+        GitHubActionGenerator generator = create(args);
+        generator.generate();
+    }
+
+    private static GitHubActionGenerator create(String[] args) throws Exception {
+        System.out.println("Starting cross-component job generation");
+        Path yamlConfig = null;
+        String branchName = null;
+        String issueNumber = null;
+        Path workflowDir = null;
+        for (String arg : args) {
+            try {
+                if (arg.startsWith(ARG_WORKFLOW_DIR)) {
+                    String val = arg.substring(ARG_WORKFLOW_DIR.length() + 1);
+                    workflowDir = Paths.get(val);
+                    if (!Files.exists(workflowDir) || !Files.isDirectory(workflowDir)) {
+                        System.err.println(workflowDir + " is not a directory");
+                        usage();
+                        System.exit(1);
+                    }
+
+                } else if (arg.startsWith(ARG_YAML)) {
+                    String val = arg.substring(ARG_YAML.length() + 1);
+                    yamlConfig = Paths.get(val);
+                    if (!Files.exists(yamlConfig) || Files.isDirectory(yamlConfig)) {
+                        System.err.println(yamlConfig + " is not a file");
+                        usage();
+                        System.exit(1);
+                    }
+                } else if (arg.startsWith(ARG_ISSUE)) {
+                    issueNumber = arg.substring(ARG_ISSUE.length() + 1);
+                } else if (arg.startsWith(ARG_BRANCH)) {
+                    branchName = arg.substring(ARG_BRANCH.length() + 1);
+                } else {
+                    System.err.println("Unknown argument " + arg);
+                    usage();
+                    System.exit(1);
+                }
+            } catch (ArrayIndexOutOfBoundsException e) {
+                System.err.println("Argument " + arg + " expects a value");
+            }
+        }
+
+        if (workflowDir == null || yamlConfig == null || branchName == null || issueNumber == null) {
+            if (workflowDir == null) {
+                System.err.println(ARG_WORKFLOW_DIR + " was not specified!");
+            }
+            if (yamlConfig == null) {
+                System.err.println(ARG_YAML + " was not specified!");
+            }
+            if (issueNumber == null) {
+                System.err.println(ARG_ISSUE + " was not specified!");
+            }
+            if (branchName == null) {
+                System.err.println(ARG_BRANCH + " was not specified!");
+            }
+            usage();
+            System.exit(1);
+        }
+
         Path workflowFile = workflowDir.resolve("ci-" + issueNumber + ".yml");
         return new GitHubActionGenerator(workflowFile, yamlConfig, branchName, issueNumber);
     }
 
-    void generate() throws Exception {
-        if (workflow.size() > 0) {
-            throw new IllegalStateException("generate() called twice?");
-        }
+    private static void usage() throws URISyntaxException {
+        Usage usage = new Usage();
+        URL url = Main.class.getProtectionDomain().getCodeSource().getLocation();
+
+        usage.addArguments(ARG_WORKFLOW_DIR + "=<file>");
+        usage.addInstruction("File system path to directory to output the created workflow yaml");
+
+        usage.addArguments(ARG_YAML + "=<file>");
+        usage.addInstruction("File system path to file containing the configuration for the created job");
+
+        usage.addArguments(ARG_ISSUE + "=<issue number>");
+        usage.addInstruction("The number of the issue that triggered this job");
+
+        usage.addArguments(ARG_BRANCH + "=<branch name>");
+        usage.addInstruction("The branch that is used to trigger the workflow");
+
+        String headline = usage.getCommandUsageHeadline(url, GENERATE_WORKFLOW);
+        System.out.print(usage.usage(headline));
+    }
+
+    private void generate() throws Exception {
         TriggerConfig triggerConfig = TriggerConfigParser.create(yamlConfig).parse();
         System.out.println("Wil create workflow file at " + workflowFile.toAbsolutePath());
 
@@ -223,12 +316,9 @@ public class GitHubActionGenerator {
         final String projectLogsDir = ".project-build-logs";
         final String jobLogsDir = projectLogsDir + "/" + jobName;
         steps.add(
-                new InstallJBangBuilder()
-                        .setIfCondition(IfCondition.FAILURE)
-                        .build());
-        steps.add(
-                new RunJBangBuider()
-                        .setScript(CI_TOOLS_CHECKOUT_FOLDER + "/.github/CopyLogArtifacts.java")
+                new RunMultiRepoCiToolCommandBuilder()
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                        .setCommand(CopyLogArtifacts.COPY_LOGS)
                         .addArgs(".", jobLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
                         .build());

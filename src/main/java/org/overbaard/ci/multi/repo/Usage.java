@@ -36,8 +36,22 @@ public final class Usage {
     private final List<List<String>> arguments = new ArrayList<List<String>>();
     private final List<String> instructions = new ArrayList<String>();
 
-    String getUsageHeadline(URL url) throws URISyntaxException {
-        return "Usage: java -jar " + Paths.get(url.toURI()).getFileName().toString() + "[command]%nwhere command may be one of:";
+    public String getCommandUsageHeadline(URL url, String command) throws URISyntaxException {
+        StringBuilder sb = new StringBuilder("Usage: java -jar ");
+        sb.append(Paths.get(url.toURI()).getFileName().toString());
+        if (command != null) {
+            sb.append(" ");
+            sb.append(command);
+        }
+        sb.append(" [args]%nwhere arg may be one of:");
+        return sb.toString();
+    }
+
+    public static String getMainUsageHeadline(URL url) throws URISyntaxException {
+        StringBuilder sb = new StringBuilder("Usage: java -jar ");
+        sb.append(Paths.get(url.toURI()).getFileName().toString());
+        sb.append(" [command]%nwhere command may be one of:");
+        return sb.toString();
     }
 
     public void addArguments(String... args){

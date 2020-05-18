@@ -1,4 +1,4 @@
-package org.overbaard.ci.multi.repo;
+package org.overbaard.ci.multi.repo.generator;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>

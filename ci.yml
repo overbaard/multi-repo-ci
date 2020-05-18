@@ -37,7 +37,7 @@ jobs:
         git config --global user.email "ci@example.com"
         git config --global user.name "CI Action"
         echo "${{ github.event.issue.body }}" > config.yml
-        java -jar ${TOOL_JAR} --workflow-dir=.github/workflows --yaml=config.yml --issue=${{ github.event.issue.number }} --branch=$BRANCH
+        java -jar ${TOOL_JAR} generate-workflow --workflow-dir=.github/workflows --yaml=config.yml --issue=${{ github.event.issue.number }} --branch=$BRANCH
         git add -A
         git commit -m "Testing file for #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
         git push --force origin "${BRANCH}"
