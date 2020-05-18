@@ -1,0 +1,16 @@
+name: Kabir's test
+env:
+  MAVEN_OPTS: -Xms756M -Xmx1g
+  VALUE1: value1
+components:
+  - name: wildfly-common
+    org: wildfly
+    branch: master
+  - name: wildfly-elytron
+    org: kabir
+    branch: feature
+    mavenOpts: -DskipTests -Dhello=true
+    dependencies:
+      - name: wildfly-common
+        property: version.wildfly.common
+# TODO will also need to set up the main jobs
