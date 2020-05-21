@@ -286,7 +286,7 @@ public class GitHubActionGenerator {
                         .setVersion("11")
                         .build());
 
-        for (Dependency dependency : component.getDependencies()) {
+            for (Dependency dependency : component.getDependencies()) {
             steps.add(
                     new DownloadArtifactBuilder()
                             .setPath(PROJECT_VERSIONS_DIRECTORY)
@@ -309,6 +309,9 @@ public class GitHubActionGenerator {
                         .setName(getVersionArtifactName(component.getName()))
                         .setPath(versionFileName)
                         .build());
+
+        // Make sure that localhost maps to ::1 in the hosts file
+        steps.add(new Ipv6LocalhostBuilder().build());
 
         steps.addAll(context.createBuildSteps());
 
