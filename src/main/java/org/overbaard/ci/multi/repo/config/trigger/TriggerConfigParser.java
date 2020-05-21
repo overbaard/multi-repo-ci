@@ -71,11 +71,17 @@ public class TriggerConfigParser extends BaseParser {
         Object org = map.remove("org");
         Object branch = map.remove("branch");
         Object mavenOpts = map.remove("mavenOpts");
+        Object debugInput = map.remove("debug");
         validateNotNullType(String.class, name, "name", "a components entry");
         validateNotNullType(String.class, org, "org", "a components entry");
         validateNotNullType(String.class, branch, "branch", "a components entry");
         if (mavenOpts != null) {
             validateType(String.class, mavenOpts, "mavenOpts", "a components entry");
+        }
+        boolean debug = false;
+        if (debugInput != null) {
+            validateType(Boolean.class, debugInput, "debug", "a components entry");
+            debug = (Boolean) debugInput;
         }
 
         Object depsInput = map.remove("dependencies");
@@ -89,6 +95,7 @@ public class TriggerConfigParser extends BaseParser {
                 (String) org,
                 (String) branch,
                 (String) mavenOpts,
+                debug,
                 Collections.unmodifiableList(dependencies));
     }
 

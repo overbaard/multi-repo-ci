@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.Usage;
@@ -238,7 +239,9 @@ public class GitHubActionGenerator {
         componentJobsConfigs.put(component.getName(), config);
         List<JobConfig> jobConfigs = config.getJobs();
         for (JobConfig jobConfig : jobConfigs) {
-            setupComponentBuildJobFromConfig(componentJobs, component, jobConfig);
+            if (!component.isDebug() || config.getExportedJobs().contains(jobConfig.getName())) {
+                setupComponentBuildJobFromConfig(componentJobs, component, jobConfig);
+            }
         }
     }
 
@@ -315,6 +318,10 @@ public class GitHubActionGenerator {
 
         steps.addAll(context.createBuildSteps());
 
+        if (context.getComponent().isDebug()) {
+            steps.add(new TmateDebugBuilder().build());
+        }
+
         // Copy across the build artifacts to the folder and upload the 'root' folder
         final String projectLogsDir = ".project-build-logs";
         final String jobLogsDir = projectLogsDir + "/" + jobName;
@@ -373,7 +380,7 @@ public class GitHubActionGenerator {
                     if (componentJobsConfig == null) {
                         needs.add(getComponentBuildId(depComponentName));
                     } else {
-                        List<String> exportedJobs = componentJobsConfig.getExportedJobs();
+                        Set<String> exportedJobs = componentJobsConfig.getExportedJobs();
                         if (exportedJobs.size() == 0) {
                             throw new IllegalStateException(component.getName() + " has a 'needs' dependency on " +
                                     "the custom configured component '" + depComponentName + "', which is not exporting" +

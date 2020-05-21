@@ -14,5 +14,7 @@ public interface Component {
 
     String getMavenOpts();
 
+    boolean isDebug();
+
     List<Dependency> getDependencies();
 }

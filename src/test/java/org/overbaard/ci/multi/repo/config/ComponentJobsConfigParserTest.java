@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -27,9 +28,9 @@ public class ComponentJobsConfigParserTest {
 
         Assert.assertNotNull(config);
 
-        List<String> exportedJobs = config.getExportedJobs();
+        Set<String> exportedJobs = config.getExportedJobs();
         Assert.assertEquals(1, exportedJobs.size());
-        Assert.assertEquals("component-job-test-build", exportedJobs.get(0));
+        Assert.assertTrue(exportedJobs.contains("component-job-test-build"));
 
         List<JobConfig> jobs = config.getJobs();
         Assert.assertEquals(2, jobs.size());

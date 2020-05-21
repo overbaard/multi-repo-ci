@@ -61,3 +61,6 @@ client/shade/dependency-reduced-pom.xml
 
 # Zanata files
 **/.zanata-cache/
+
+__throwaway.yml
+.repo-config/

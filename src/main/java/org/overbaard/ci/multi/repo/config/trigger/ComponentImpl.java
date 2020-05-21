@@ -10,13 +10,15 @@ public class ComponentImpl implements Component {
     private final String org;
     private final String branch;
     private final String mavenOpts;
+    private final boolean debug;
     private final List<Dependency> dependencies;
 
-    public ComponentImpl(String name, String org, String branch, String mavenOpts, List<Dependency> dependencies) {
+    public ComponentImpl(String name, String org, String branch, String mavenOpts, boolean debug, List<Dependency> dependencies) {
         this.name = name;
         this.org = org;
         this.branch = branch;
         this.mavenOpts = mavenOpts;
+        this.debug = debug;
         this.dependencies = dependencies;
     }
 
@@ -38,6 +40,11 @@ public class ComponentImpl implements Component {
     @Override
     public String getMavenOpts() {
         return mavenOpts;
+    }
+
+    @Override
+    public boolean isDebug() {
+        return debug;
     }
 
     @Override

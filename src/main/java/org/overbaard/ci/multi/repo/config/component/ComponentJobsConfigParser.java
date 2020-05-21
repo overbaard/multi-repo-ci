@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,7 +61,7 @@ public class ComponentJobsConfigParser extends BaseParser {
         if (jobs.size() == 0) {
             throw new IllegalStateException("'jobs' entry is empty");
         }
-        List<String> exportedJobs = new ArrayList<>();
+        Set<String> exportedJobs = new LinkedHashSet<>();
         if (exportedJobsInput != null) {
             if (exportedJobsInput instanceof List == false) {
                 throw new IllegalStateException("'exported-jobs' entry is not a list");

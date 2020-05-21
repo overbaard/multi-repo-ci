@@ -6,6 +6,7 @@ components:
   - name: wildfly-common
     org: wildfly
     branch: master
+    debug: true
   - name: wildfly-elytron
     org: kabir
     branch: feature
