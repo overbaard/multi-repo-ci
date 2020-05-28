@@ -47,7 +47,7 @@ public class TriggerConfigParser extends BaseParser {
 
         List<Component> components = parseComponents(componentsInput);
 
-        return new TriggerConfigImpl((String) name, env, components);
+        return new TriggerConfig((String) name, env, components);
     }
 
     private List<Component> parseComponents(Object input) {
@@ -90,7 +90,7 @@ public class TriggerConfigParser extends BaseParser {
         }
 
         List<Dependency> dependencies = parseDependencies(depsInput);
-        return new ComponentImpl(
+        return new Component(
                 (String) name,
                 (String) org,
                 (String) branch,
@@ -129,7 +129,7 @@ public class TriggerConfigParser extends BaseParser {
             throw new IllegalStateException("Unknown in dependencies entries: " + map.keySet());
         }
 
-        return new DependencyImpl((String) name, (String) property);
+        return new Dependency((String) name, (String) property);
     }
 
     private void validateNotNullType(Class<?> clazz, Object value, String name, String description) {

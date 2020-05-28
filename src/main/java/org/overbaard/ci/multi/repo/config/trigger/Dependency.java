@@ -3,8 +3,20 @@ package org.overbaard.ci.multi.repo.config.trigger;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public interface Dependency {
-    String getName();
+public class Dependency {
+    private final String name;
+    private final String property;
 
-    String getProperty();
+    Dependency(String name, String property) {
+        this.name = name;
+        this.property = property;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getProperty() {
+        return property;
+    }
 }

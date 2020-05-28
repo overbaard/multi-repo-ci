@@ -7,7 +7,7 @@ public class JobRunElementConfig {
     private final Type type;
     private final String command;
 
-    public JobRunElementConfig(Type type, String command) {
+    JobRunElementConfig(Type type, String command) {
         this.type = type;
         this.command = command;
     }

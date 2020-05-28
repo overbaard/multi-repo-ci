@@ -12,7 +12,7 @@ public class JobConfig {
     private final List<String> needs;
     private final List<JobRunElementConfig> runElements;
 
-    public JobConfig(String name, Map<String, String> jobEnv, List<String> needs, List<JobRunElementConfig> runElements) {
+    JobConfig(String name, Map<String, String> jobEnv, List<String> needs, List<JobRunElementConfig> runElements) {
         this.name = name;
         this.jobEnv = jobEnv;
         this.needs = needs;

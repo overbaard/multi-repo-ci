@@ -11,7 +11,7 @@ public class ComponentJobsConfig {
     private final Set<String> exportedJobs;
     private final List<JobConfig> jobs;
 
-    public ComponentJobsConfig(String componentName, Set<String> exportedJobs, List<JobConfig> jobs) {
+    ComponentJobsConfig(String componentName, Set<String> exportedJobs, List<JobConfig> jobs) {
         this.componentName = componentName;
         this.exportedJobs = exportedJobs;
         this.jobs = jobs;

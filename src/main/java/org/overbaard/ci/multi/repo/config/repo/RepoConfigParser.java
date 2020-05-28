@@ -28,7 +28,7 @@ public class RepoConfigParser extends BaseParser {
             System.out.println("Parsing repository config: " + yamlFile);
         } else {
             System.err.println("No " + yamlFile + " found. Proceeding without a global repo config");
-            return new RepoConfigImpl();
+            return new RepoConfig();
         }
         Map<String, Object> input = null;
         try {
@@ -45,6 +45,6 @@ public class RepoConfigParser extends BaseParser {
         }
 
         Map<String, String> env = parseEnv(envInput);
-        return new RepoConfigImpl(env);
+        return new RepoConfig(env);
     }
 }
