@@ -22,6 +22,8 @@ import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
 import org.overbaard.ci.multi.repo.config.component.JobConfig;
 import org.overbaard.ci.multi.repo.config.component.JobRunElementConfig;
+import org.overbaard.ci.multi.repo.config.repo.RepoConfig;
+import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
 import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
@@ -44,6 +46,7 @@ public class GitHubActionGenerator {
 
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
     static final String PROJECT_VERSIONS_DIRECTORY = ".project_versions";
+    static final Path REPO_CONFIG_FILE = Paths.get(".repo-config/config.yml");
     static final Path COMPONENT_JOBS_DIR = Paths.get(".repo-config/component-jobs");
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
@@ -150,10 +153,11 @@ public class GitHubActionGenerator {
     }
 
     private void generate() throws Exception {
+        RepoConfig repoConfig = RepoConfigParser.create(REPO_CONFIG_FILE).parse();
         TriggerConfig triggerConfig = TriggerConfigParser.create(yamlConfig).parse();
         System.out.println("Wil create workflow file at " + workflowFile.toAbsolutePath());
 
-        setupWorkFlowHeaderSection(triggerConfig);
+        setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(triggerConfig);
 
         DumperOptions options = new DumperOptions();
@@ -169,15 +173,25 @@ public class GitHubActionGenerator {
         Files.write(workflowFile, output.getBytes(StandardCharsets.UTF_8));
     }
 
-    private void setupWorkFlowHeaderSection(TriggerConfig triggerConfig) {
+    private void setupWorkFlowHeaderSection(RepoConfig repoConfig, TriggerConfig triggerConfig) {
         workflow.put("name", triggerConfig.getName());
         workflow.put("on", Collections.singletonMap("push", Collections.singletonMap("branches", branchName)));
 
-        if (triggerConfig.getEnv().size() > 0) {
-            Map<String, Object> env = new HashMap<>();
-            for (String key : triggerConfig.getEnv().keySet()) {
-                env.put(key, triggerConfig.getEnv().get(key));
+        Map<String, Object> env = new HashMap<>();
+        for (String key : repoConfig.getEnv().keySet()) {
+            env.put(key, repoConfig.getEnv().get(key));
+        }
+        for (String key : triggerConfig.getEnv().keySet()) {
+            Object value = triggerConfig.getEnv().get(key);
+            Object existing = env.get(key);
+            if (existing != null) {
+                System.out.println("Overriding '" + key + "' from repository config with value from issue. " +
+                        "Original: " + existing + "; Replacement: " + value);
             }
+            env.put(key, triggerConfig.getEnv().get(key));
+        }
+
+        if (env.size() > 0) {
             workflow.put("env", env);
         }
     }
