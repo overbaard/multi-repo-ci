@@ -48,6 +48,7 @@ public class ComponentJobsConfigParser extends BaseParser {
         Object envInput = input.remove("env");
         Object jobsInput = input.remove("jobs");
         Object exportedJobsInput = input.remove("exported-jobs");
+        Object javaVersionInput = input.remove("java-version");
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
         }
@@ -56,8 +57,9 @@ public class ComponentJobsConfigParser extends BaseParser {
         }
 
         Map<String, String> mainEnv = parseEnv(envInput);
+        String javaVersion = parseJavaVersion(javaVersionInput);
 
-        Map<String, JobConfig> jobs = parseJobs(mainEnv, jobsInput);
+        Map<String, JobConfig> jobs = parseJobs(javaVersion, mainEnv, jobsInput);
         if (jobs.size() == 0) {
             throw new IllegalStateException("'jobs' entry is empty");
         }
@@ -80,24 +82,23 @@ public class ComponentJobsConfigParser extends BaseParser {
             }
         }
 
-
         return new ComponentJobsConfig(componentName, exportedJobs, new ArrayList<>(jobs.values()));
     }
 
-    private Map<String, JobConfig> parseJobs(Map<String, String> mainEnv, Object input) {
+    private Map<String, JobConfig> parseJobs(String javaVersion, Map<String, String> mainEnv, Object input) {
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
         Map<String, JobConfig> jobs = new LinkedHashMap<>();
         Map<String, Object> map = (Map)input;
         for (String key : map.keySet()) {
-            JobConfig job = parseJob(mainEnv, key, map.get(key));
+            JobConfig job = parseJob(javaVersion, mainEnv, key, map.get(key));
             jobs.put(key, job);
         }
         return jobs;
     }
 
-    private JobConfig parseJob(Map<String, String> mainEnv, String jobKey, Object input) {
+    private JobConfig parseJob(String javaVersion, Map<String, String> mainEnv, String jobKey, Object input) {
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
@@ -120,6 +121,10 @@ public class ComponentJobsConfigParser extends BaseParser {
                     runElements = parseJobRunElements(map.get(key));
                     break;
                 }
+                case "java-version": {
+                    javaVersion = parseJavaVersion(map.get(key));
+                    break;
+                }
                 default:
                     throw new IllegalStateException("Unknown entry: " + key);
             }
@@ -133,7 +138,8 @@ public class ComponentJobsConfigParser extends BaseParser {
             throw new IllegalStateException("Null 'run'");
         }
 
-        return new JobConfig(name, jobEnv, needs, runElements);
+
+        return new JobConfig(name, jobEnv, javaVersion, needs, runElements);
     }
 
     private Map<String, String> mergeEnv(Map<String, String> mainEnv, Map<String, String> jobEnv) {

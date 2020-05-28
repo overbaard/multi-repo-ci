@@ -23,6 +23,7 @@ components:
     org: jboss-remoting
     branch: '5.0'
     mavenOpts: -DskipTests
+    java-version: 8
     dependencies:
       - name: xnio
         property: xnio.version
@@ -45,6 +46,9 @@ This yaml defines a CI run for a job spanning four components. For each componen
 * The name of the component repository
 * The organisation, or the user account to build it from
 * The name of the branch containing the feature
+* An optional `java-version` to use as a parameter to the generated [setup-java action](https://github.com/actions/setup-java). 
+If not specified, whatever the administrator set up as the default will be used. This should only be specified for
+components that have a different java version than normal. 
 
 Although I have used the upstream organisation for each of the components, they could point to branches in your (or your team mates') repositories. In addition, each component may have dependencies on a SNAPSHOT from another build. In the above example, we can see that:
 * `jboss-remoting` depends on `xnio`
@@ -94,6 +98,18 @@ Then copy the PAT and store it in a [GitHub Secret](https://help.github.com/en/a
 ### Enable the CI job
 Copy [ci.yml](./ci.yml) to `.github/workflows/ci.yml` (you may change the name of the file as you like) in your repository.
 
+### Configuring the repository
+Create a `.repo-config/config.yml` file. An example:
+```
+env:
+  MAVEN_OPTS: -Xmx1g -Xmx1g
+java-version: 11
+```
+Here we have set the maven opts environment variable to have the right size for our build. In addition we have set
+the java-version to use for the generated [setup-java action](https://github.com/actions/setup-java). This can be 
+overridden by the user in the issue YAML. Also, in the next section we can set up the default java version to use when 
+tailoring component builds.
+
 ### Tailoring build
 By default with what we have seen so far, the tool will generate a workflow file which simply does the following steps for each component:
 * Check out the specified repo + branch
@@ -115,6 +131,11 @@ env:
   MAVEN_TEST_PARAMS: -DfailIfNoTests=false -Dipv6 -Djboss.test.transformers.eap -Dci-cleanup=true -fae -DallTests
 ```
 As mentioned in the comments an env entry in GitHub Actions does not get substituted into other env entries.
+```
+java-version: 8
+```
+Here we say to use `8` as the version of java for all jobs in this component (note we can still override this again 
+for each job). 
 ```
 # exported jobs are the jobs that the components builds in the issue yaml depending on this component will depend upon
 exported-jobs: [build]
@@ -159,6 +180,10 @@ Next the mvn command ends up having `-DskipTests` passed in (from the `MAVEN_BUI
     needs: [build]
 ```
 We depend on the above `build` job, so that will have completed before this job runs.
+```
+    java-version: 11
+```
+We can override the java version that we set up for the whole component for this particular job.
 ```
     run:
       - mvn: package ${MAVEN_SMOKE_TEST_PARAMS}

@@ -1,5 +1,6 @@
 package org.overbaard.ci.multi.repo.config;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -20,7 +21,18 @@ public class BaseParser {
             }
             result.put(key, value.toString());
         }
-        return result;
+        return Collections.unmodifiableMap(result);
     }
 
+    protected String parseJavaVersion(Object input) {
+        if (input == null) {
+            return null;
+        }
+
+        if (input instanceof String == false && input instanceof Number == false) {
+            throw new IllegalStateException("'java-version' is not a String or a Number");
+        }
+
+        return input.toString();
+    }
 }

@@ -3,6 +3,7 @@ package org.overbaard.ci.multi.repo.config.repo;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -24,7 +25,7 @@ public class RepoConfigParser extends BaseParser {
     }
 
     public RepoConfig parse() throws Exception {
-        if (yamlFile != null) {
+        if (Files.exists(yamlFile)) {
             System.out.println("Parsing repository config: " + yamlFile);
         } else {
             System.err.println("No " + yamlFile + " found. Proceeding without a global repo config");
@@ -39,12 +40,15 @@ public class RepoConfigParser extends BaseParser {
         }
 
         Object envInput = input.remove("env");
+        Object javaVersionInput = input.remove("java-version");
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
         }
 
         Map<String, String> env = parseEnv(envInput);
-        return new RepoConfig(env);
+        String javaVersion = parseJavaVersion(javaVersionInput);
+
+        return new RepoConfig(env, javaVersion);
     }
 }

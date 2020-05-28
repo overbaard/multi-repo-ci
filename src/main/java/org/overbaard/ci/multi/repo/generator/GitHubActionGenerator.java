@@ -43,6 +43,8 @@ public class GitHubActionGenerator {
     private static final String ARG_ISSUE = "--issue";
     private static final String ARG_BRANCH = "--branch";
 
+    private static final String DEFAULT_JAVA_VERSION = "11";
+
 
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
     static final String PROJECT_VERSIONS_DIRECTORY = ".project_versions";
@@ -158,7 +160,7 @@ public class GitHubActionGenerator {
         System.out.println("Wil create workflow file at " + workflowFile.toAbsolutePath());
 
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
-        setupJobs(triggerConfig);
+        setupJobs(repoConfig, triggerConfig);
 
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
@@ -196,7 +198,7 @@ public class GitHubActionGenerator {
         }
     }
 
-    private void setupJobs(TriggerConfig triggerConfig) throws Exception {
+    private void setupJobs(RepoConfig repoConfig, TriggerConfig triggerConfig) throws Exception {
 
         this.jobLogsArtifactName = createJobLogsArtifactName(triggerConfig);
 
@@ -210,10 +212,10 @@ public class GitHubActionGenerator {
             }
             if (!Files.exists(componentJobsFile)) {
                 System.out.println("No " + componentJobsFile + " found. Setting up default job for component: " + component.getName());
-                setupDefaultComponentBuildJob(componentJobs, component);
+                setupDefaultComponentBuildJob(componentJobs, repoConfig, component);
             } else {
                 System.out.println("using " + componentJobsFile + " to add job(s) for component: " + component.getName());
-                setupComponentBuildJobsFromFile(componentJobs, component, componentJobsFile);
+                setupComponentBuildJobsFromFile(componentJobs, repoConfig, component, componentJobsFile);
             }
         }
         workflow.put("jobs", componentJobs);
@@ -237,13 +239,13 @@ public class GitHubActionGenerator {
         return sb.toString();
     }
 
-    private void setupDefaultComponentBuildJob(Map<String, Object> componentJobs, Component component) {
-        DefaultComponentJobContext context = new DefaultComponentJobContext(component);
+    private void setupDefaultComponentBuildJob(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component) {
+        DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(getComponentBuildId(component.getName()), job);
     }
 
-    private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, Component component, Path componentJobsFile) throws Exception {
+    private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
         ComponentJobsConfig config = ComponentJobsConfigParser.create(componentJobsFile).parse();
         if (component.getMavenOpts() != null) {
             throw new IllegalStateException(component.getName() +
@@ -254,13 +256,13 @@ public class GitHubActionGenerator {
         List<JobConfig> jobConfigs = config.getJobs();
         for (JobConfig jobConfig : jobConfigs) {
             if (!component.isDebug() || config.getExportedJobs().contains(jobConfig.getName())) {
-                setupComponentBuildJobFromConfig(componentJobs, component, jobConfig);
+                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig);
             }
         }
     }
 
-    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, Component component, JobConfig jobConfig) {
-        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(component, jobConfig);
+    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, JobConfig jobConfig) {
+        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
     }
@@ -300,7 +302,7 @@ public class GitHubActionGenerator {
                         .build());
         steps.add(
                 new SetupJavaBuilder()
-                        .setVersion("11")
+                        .setVersion(context.getJavaVersion())
                         .build());
 
             for (Dependency dependency : component.getDependencies()) {
@@ -373,13 +375,23 @@ public class GitHubActionGenerator {
     }
 
     private abstract class ComponentJobContext {
+        protected final RepoConfig repoConfig;
         protected final Component component;
 
-        public ComponentJobContext(Component component) {
+        public ComponentJobContext(RepoConfig repoConfig, Component component) {
+            this.repoConfig = repoConfig;
             this.component = component;
         }
 
         public abstract String getJobName();
+
+        public String getJavaVersion() {
+            String javaVersion = DEFAULT_JAVA_VERSION;
+            if (repoConfig.getJavaVersion() != null) {
+                javaVersion = repoConfig.getJavaVersion();
+            }
+            return javaVersion;
+        }
 
         public Component getComponent() {
             return component;
@@ -424,8 +436,8 @@ public class GitHubActionGenerator {
     }
 
     private class DefaultComponentJobContext extends ComponentJobContext {
-        public DefaultComponentJobContext(Component component) {
-            super(component);
+        public DefaultComponentJobContext(RepoConfig repoConfig, Component component) {
+            super(repoConfig, component);
         }
 
         @Override
@@ -450,13 +462,22 @@ public class GitHubActionGenerator {
             sb.append(getDependencyVersionMavenProperties());
             return sb.toString();
         }
+
+        public String getJavaVersion() {
+            String javaVersion = super.getJavaVersion();
+
+            if (component.getJavaVersion() != null) {
+                javaVersion = component.getJavaVersion();
+            }
+            return javaVersion;
+        }
     }
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
         private final JobConfig jobConfig;
 
-        public ConfiguredComponentJobContext(Component component, JobConfig jobConfig) {
-            super(component);
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig) {
+            super(repoConfig, component);
             this.jobConfig = jobConfig;
         }
 
@@ -500,5 +521,18 @@ public class GitHubActionGenerator {
         public Map<String, String> createEnv() {
             return jobConfig.getJobEnv();
         }
+
+        public String getJavaVersion() {
+            String javaVersion = super.getJavaVersion();
+            // Let the user override the java version specified in the job config
+            if (jobConfig.getJavaVersion() != null) {
+                javaVersion = jobConfig.getJavaVersion();
+            }
+            if (component.getJavaVersion() != null) {
+                javaVersion = component.getJavaVersion();
+            }
+            return javaVersion;
+        }
+
     }
 }

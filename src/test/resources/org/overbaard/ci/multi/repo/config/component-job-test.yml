@@ -1,6 +1,7 @@
 env:
   P1: 1
   P2: 22
+java-version: 13
 exported-jobs: [build]
 jobs:
   build:
@@ -14,5 +15,6 @@ jobs:
 
   ts:
     needs: [build]
+    java-version: 16
     run:
       - mvn: package -pl tests ${MAVEN_SMOKE_TEST_PARAMS}

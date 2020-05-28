@@ -38,6 +38,7 @@ public class ComponentJobsConfigParserTest {
         JobConfig build = jobs.get(0);
         Assert.assertEquals("component-job-test-build", build.getName());
         Assert.assertEquals(0, build.getNeeds().size());
+        Assert.assertEquals("13", build.getJavaVersion());
         Map<String, String> buildEnv = build.getJobEnv();
         List<String> buildEnvKeys = new ArrayList<>(buildEnv.keySet());
         Assert.assertEquals(Arrays.asList("P1", "P2", "P3", "P4"), buildEnvKeys);
@@ -56,6 +57,7 @@ public class ComponentJobsConfigParserTest {
         JobConfig ts = jobs.get(1);
         Assert.assertEquals("component-job-test-ts", ts.getName());
         Assert.assertEquals(1, ts.getNeeds().size());
+        Assert.assertEquals("16", ts.getJavaVersion());
         Assert.assertEquals("component-job-test-build", ts.getNeeds().get(0));
         Map<String, String> tsEnv = ts.getJobEnv();
         Assert.assertEquals(2, tsEnv.size());

@@ -7,6 +7,7 @@ components:
     org: wildfly
     branch: master
     debug: true
+    java-version: 15
   - name: wildfly-elytron
     org: kabir
     branch: feature

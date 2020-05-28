@@ -9,16 +9,23 @@ import java.util.Map;
 public class RepoConfig {
 
     private final Map<String, String> env;
+    private final String javaVersion;
 
-    RepoConfig(Map<String, String> env) {
+    RepoConfig(Map<String, String> env, String javaVersion) {
         this.env = env;
+        this.javaVersion = javaVersion;
     }
 
     RepoConfig() {
         this.env = Collections.emptyMap();
+        this.javaVersion = null;
     }
 
     public Map<String, String> getEnv() {
         return env;
+    }
+
+    public String getJavaVersion() {
+        return javaVersion;
     }
 }
