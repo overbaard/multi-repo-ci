@@ -349,6 +349,13 @@ public class GitHubActionGenerator {
                         .setIfCondition(IfCondition.FAILURE)
                         .build());
         steps.add(
+                new ZipFolderBuilder()
+                        .setIfCondition(IfCondition.FAILURE)
+                        .setContainingDirectory(projectLogsDir)
+                        .setChildDirectoryToZip(jobName)
+                        .removeDirectory()
+                        .build());
+        steps.add(
                 new UploadArtifactBuilder()
                         .setName(jobLogsArtifactName)
                         .setPath(projectLogsDir)

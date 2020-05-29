@@ -8,6 +8,7 @@ public class UploadArtifactBuilder extends AbstractArtifactBuilder<UploadArtifac
     UploadArtifactBuilder() {
         super("actions/upload-artifact@v2");
     }
+
     @Override
     UploadArtifactBuilder getThis() {
         return this;
