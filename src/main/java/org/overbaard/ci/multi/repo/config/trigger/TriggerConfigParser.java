@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,19 +56,20 @@ public class TriggerConfigParser extends BaseParser {
             throw new IllegalStateException("'components' in workflow trigger yaml is not a list");
         }
         List<Object> list = (List) input;
-        List<Component> components = new ArrayList<>();
+        Map<String, Component> components = new LinkedHashMap<>();
         for (Object o : list) {
-            components.add(parseComponent(o));
+            parseComponent(components, o);
         }
-        return components;
+        return new ArrayList<>(components.values());
     }
 
-    private Component parseComponent(Object input) {
+    private void parseComponent(Map<String, Component> components, Object input) {
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
         Map<String, Object> map = (Map)input;
         Object name = map.remove("name");
+        validateComponentName(name);
         Object org = map.remove("org");
         Object branch = map.remove("branch");
         Object mavenOpts = map.remove("mavenOpts");
@@ -93,7 +95,13 @@ public class TriggerConfigParser extends BaseParser {
         }
 
         List<Dependency> dependencies = parseDependencies(depsInput);
-        return new Component(
+        for (Dependency dependency : dependencies) {
+            if (!components.containsKey(dependency.getName())) {
+                String msg = String.format("Component '%s' has a dependency on an unseen component '%s'", name, dependency.getName());
+                throw new IllegalStateException(msg);
+            }
+        }
+        Component component =  new Component(
                 (String) name,
                 (String) org,
                 (String) branch,
@@ -101,6 +109,7 @@ public class TriggerConfigParser extends BaseParser {
                 debug,
                 javaVersion,
                 Collections.unmodifiableList(dependencies));
+        components.put(component.getName(), component);
     }
 
     private List<Dependency> parseDependencies(Object input) {
@@ -152,6 +161,19 @@ public class TriggerConfigParser extends BaseParser {
         if (!clazz.isAssignableFrom(value.getClass())) {
             String msg = String.format("'%s' for %s was not a %s: %s", name, description, clazz.getSimpleName(), value);
             throw new IllegalStateException(msg);
+        }
+    }
+
+    private void validateComponentName(Object name) {
+        if (!(name instanceof String)) {
+            String msg = String.format("Illegal component name '%s'. It must be a String.", name);
+            throw new IllegalStateException(msg);
+        }
+        for (char c : ((String)name).toCharArray()) {
+            if (!Character.isAlphabetic(c) && c != '-') {
+                String msg = String.format("Illegal component name '%s'. Only alphabetic characters or '-' are allowed", name);
+                throw new IllegalStateException(msg);
+            }
         }
     }
 }
