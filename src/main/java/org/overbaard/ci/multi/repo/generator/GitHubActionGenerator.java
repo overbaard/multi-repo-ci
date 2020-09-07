@@ -255,7 +255,7 @@ public class GitHubActionGenerator {
         componentJobsConfigs.put(component.getName(), config);
         List<JobConfig> jobConfigs = config.getJobs();
         for (JobConfig jobConfig : jobConfigs) {
-            if (!component.isDebug() || config.getExportedJobs().contains(jobConfig.getName())) {
+            if (!component.isDebug() || config.getBuildStep().equals(jobConfig.getName())) {
                 setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig);
             }
         }
@@ -413,13 +413,8 @@ public class GitHubActionGenerator {
                     if (componentJobsConfig == null) {
                         needs.add(getComponentBuildId(depComponentName));
                     } else {
-                        Set<String> exportedJobs = componentJobsConfig.getExportedJobs();
-                        if (exportedJobs.size() == 0) {
-                            throw new IllegalStateException(component.getName() + " has a 'needs' dependency on " +
-                                    "the custom configured component '" + depComponentName + "', which is not exporting" +
-                                    "any of its jobs to depend upon.");
-                        }
-                        needs.addAll(exportedJobs);
+                        String buildStep = componentJobsConfig.getBuildStep();
+                        needs.add(buildStep);
                     }
                 }
             }

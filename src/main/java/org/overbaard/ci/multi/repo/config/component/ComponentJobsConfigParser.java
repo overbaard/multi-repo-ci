@@ -47,13 +47,16 @@ public class ComponentJobsConfigParser extends BaseParser {
 
         Object envInput = input.remove("env");
         Object jobsInput = input.remove("jobs");
-        Object exportedJobsInput = input.remove("exported-jobs");
+        Object buildStepInput = input.remove("build-step");
         Object javaVersionInput = input.remove("java-version");
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
         }
         if (jobsInput == null) {
             throw new IllegalStateException("No 'jobs' entry");
+        }
+        if (buildStepInput == null) {
+            throw new IllegalStateException("No 'build-step' entry");
         }
 
         Map<String, String> mainEnv = parseEnv(envInput);
@@ -63,26 +66,17 @@ public class ComponentJobsConfigParser extends BaseParser {
         if (jobs.size() == 0) {
             throw new IllegalStateException("'jobs' entry is empty");
         }
-        Set<String> exportedJobs = new LinkedHashSet<>();
-        if (exportedJobsInput != null) {
-            if (exportedJobsInput instanceof List == false) {
-                throw new IllegalStateException("'exported-jobs' entry is not a list");
-            }
-            List<Object> exportedList = (List) exportedJobsInput;
-            for (Object o : exportedList) {
-                if (o instanceof String == false) {
-                    throw new IllegalStateException("'exported-jobs' entry is not a String: " + o);
-                }
-                String exportedJob = (String) o;
-                if (jobs.get(exportedJob) == null) {
-                    throw new IllegalStateException("No job called '" + exportedJob +
-                            "' referenced by 'exported-jobs' entry: " + exportedJob);
-                }
-                exportedJobs.add(createJobName(exportedJob));
-            }
+
+        if (buildStepInput instanceof String == false) {
+            throw new IllegalStateException("'build-step' entry is not a String: " + buildStepInput);
+        }
+        String buildStep = (String) buildStepInput;
+        if (jobs.get(buildStep) == null) {
+            throw new IllegalStateException("No job called '" + buildStep +
+                    "' referenced by 'exported-jobs' entry: " + buildStep);
         }
 
-        return new ComponentJobsConfig(componentName, exportedJobs, new ArrayList<>(jobs.values()));
+        return new ComponentJobsConfig(componentName, createJobName(buildStep), new ArrayList<>(jobs.values()));
     }
 
     private Map<String, JobConfig> parseJobs(String javaVersion, Map<String, String> mainEnv, Object input) {

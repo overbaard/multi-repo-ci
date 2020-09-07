@@ -28,9 +28,8 @@ public class ComponentJobsConfigParserTest {
 
         Assert.assertNotNull(config);
 
-        Set<String> exportedJobs = config.getExportedJobs();
-        Assert.assertEquals(1, exportedJobs.size());
-        Assert.assertTrue(exportedJobs.contains("component-job-test-build"));
+        String buildStep = config.getBuildStep();
+        Assert.assertEquals("component-job-test-build", buildStep);
 
         List<JobConfig> jobs = config.getJobs();
         Assert.assertEquals(2, jobs.size());
