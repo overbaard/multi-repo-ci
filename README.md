@@ -137,11 +137,12 @@ java-version: 8
 Here we say to use `8` as the version of java for all jobs in this component (note we can still override this again 
 for each job). 
 ```
-# exported jobs are the jobs that the components builds in the issue yaml depending on this component will depend upon
-exported-jobs: [build]
+# the build job is the job that builds the component and determines its version. Other components depend on this job.
+build-job: build
 ```
-Jobs for components depending on this component will depend on the jobs listed in the `exported-jobs` entry. This way
+Jobs for components depending on this component will depend on the jobs indicated in the `build-step` entry. This way
 in our example, the `wildfly` component build only waits for the `build` job of `wildfly-core`, and **not** the full wildfly-core testsuite.
+Also, this job is what determines the version of `wildfly-core`.
 ```
 jobs:
   # Build the server skipping tests for speed since other jobs depend on this. The maven repo is cached
