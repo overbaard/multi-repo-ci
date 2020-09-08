@@ -15,6 +15,7 @@
     <packaging>jar</packaging>
 
     <properties>
+        <version.maven>3.6.3</version.maven>
         <version.snakeyml>1.25</version.snakeyml>
         <version.junit>4.12</version.junit>
     </properties>
@@ -24,13 +25,23 @@
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-						<version>${version.snakeyml}</version>
+            <version>${version.snakeyml}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-						<version>${version.junit}</version>
+            <version>${version.junit}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model</artifactId>
+            <version>3.6.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven</groupId>
+            <artifactId>maven-model</artifactId>
+            <version>3.6.3</version>
         </dependency>
     </dependencies>
 
