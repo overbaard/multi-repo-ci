@@ -4,22 +4,27 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator;
+import org.overbaard.ci.multi.repo.generator.GitHubActionGeneratorToolCommand;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
+import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifactsToolCommand;
+import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
+import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifactsToolCommand;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class Main {
 
-    private static final Map<String, String> COMMANDS;
+    private static final Map<String, ToolCommand> COMMANDS;
     static {
-        Map<String, String> map = new HashMap<>();
-        map.put(GitHubActionGenerator.GENERATE_WORKFLOW, "Generates a GitHub workflow YAML from the trigger issue input");
-        map.put(CopyLogArtifacts.COPY_LOGS, "Copies across the log files to the artifacts");
+        Map<String, ToolCommand> map = new LinkedHashMap<>();
+        map.put(GitHubActionGenerator.GENERATE_WORKFLOW, new GitHubActionGeneratorToolCommand());
+        map.put(CopyLogArtifacts.COPY_LOGS, new CopyLogArtifactsToolCommand());
+        map.put(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS, new BackupMavenArtifactsToolCommand());
         COMMANDS = Collections.unmodifiableMap(map);
     }
 
@@ -29,26 +34,14 @@ public class Main {
             System.exit(1);
         }
         String cmd = args[0];
-        if (COMMANDS.get(cmd) == null) {
+        ToolCommand toolCommand = COMMANDS.get(cmd);
+        if (toolCommand == null) {
             System.out.println("Unknown command: " + cmd);
             System.exit(1);
         }
 
         String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
-        switch (cmd) {
-            case GitHubActionGenerator.GENERATE_WORKFLOW: {
-                GitHubActionGenerator.generate(newArgs);
-                break;
-            }
-            case CopyLogArtifacts.COPY_LOGS: {
-                CopyLogArtifacts.copy(newArgs);
-                break;
-            }
-            default:
-                System.out.println("Unknown command: " + cmd);
-                System.exit(1);
-        }
-
+        toolCommand.invoke(newArgs);
     }
 
 
@@ -57,7 +50,7 @@ public class Main {
         URL url = Main.class.getProtectionDomain().getCodeSource().getLocation();
 
         for (String cmd : COMMANDS.keySet()) {
-            String description = COMMANDS.get(cmd);
+            String description = COMMANDS.get(cmd).getDescription();
             usage.addArguments(cmd);
             usage.addInstruction(description);
         }

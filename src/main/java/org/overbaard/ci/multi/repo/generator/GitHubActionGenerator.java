@@ -28,6 +28,7 @@ import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
+import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -68,7 +69,7 @@ public class GitHubActionGenerator {
         return yamlConfig;
     }
 
-    public static void generate(String[] args) throws Exception {
+    static void generate(String[] args) throws Exception {
         GitHubActionGenerator generator = create(args);
         generator.generate();
     }
@@ -325,6 +326,27 @@ public class GitHubActionGenerator {
 
         if (context.getComponent().isDebug()) {
             steps.add(new TmateDebugBuilder().build());
+        }
+
+        if (context.isGrabVersion()) {
+            String mavenRepo = System.getenv("HOME");
+            if (mavenRepo == null) {
+                throw new IllegalStateException("No HOME env var set!");
+            }
+            mavenRepo += "/.m2/repository";
+            Path rootPom = Paths.get("pom.xml");
+            Path backupPath = Paths.get(".maven-repo-backup");
+
+
+            // Back up the parts of the maven repo we built
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                            .setCommand(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS)
+                            .addArgs(rootPom.toAbsolutePath().toString(), mavenRepo, backupPath.toAbsolutePath().toString())
+                            .setIfCondition(IfCondition.SUCCESS)
+                            .build());
+
         }
 
         // Copy across the build artifacts to the folder and upload the 'root' folder

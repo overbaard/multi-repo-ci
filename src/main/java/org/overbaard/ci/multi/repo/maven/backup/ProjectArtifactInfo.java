@@ -1,6 +1,4 @@
-package org.overbaard.ci.multi.repo.maven.delta;
-
-import java.util.function.Function;
+package org.overbaard.ci.multi.repo.maven.backup;
 
 import org.apache.maven.model.Model;
 
@@ -11,21 +9,25 @@ public class ProjectArtifactInfo {
     private final String groupId;
     private final String artifactId;
     private final String version;
+    private final String relativePath;
 
     private ProjectArtifactInfo(String groupId, String artifactId, String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
+        this.relativePath = groupId.replace('.', '/') + '/' +
+                artifactId.replace('.', '/') + '/' +
+                version;
     }
 
     static ProjectArtifactInfo create(Model model) {
         return new ProjectArtifactInfo(
-                getGroupId(model),
-                getArtifactId(model),
-                getVersion(model));
+                readGroupId(model),
+                readArtifactId(model),
+                readVersion(model));
     }
 
-    private static String getGroupId(Model model) {
+    private static String readGroupId(Model model) {
         String groupId = model.getGroupId();
         if (groupId == null) {
             groupId = model.getParent().getGroupId();
@@ -33,7 +35,7 @@ public class ProjectArtifactInfo {
         return groupId;
     }
 
-    private static String getArtifactId(Model model) {
+    private static String readArtifactId(Model model) {
         String artifactId = model.getArtifactId();
         if (artifactId == null) {
             artifactId = model.getParent().getArtifactId();
@@ -41,12 +43,16 @@ public class ProjectArtifactInfo {
         return artifactId;
     }
 
-    private static String getVersion(Model model) {
+    private static String readVersion(Model model) {
         String version = model.getVersion();
         if (version == null) {
             version = model.getParent().getVersion();
         }
         return version;
+    }
+
+    public String getRelativePath() {
+        return relativePath;
     }
 
     @Override
