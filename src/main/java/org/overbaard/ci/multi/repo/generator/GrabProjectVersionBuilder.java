@@ -1,7 +1,5 @@
 package org.overbaard.ci.multi.repo.generator;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -10,16 +8,10 @@ import java.util.Map;
  */
 public class GrabProjectVersionBuilder {
     private String envVarName;
-    private String fileName;
 
 
     public GrabProjectVersionBuilder setEnvVarName(String envVarName) {
         this.envVarName = envVarName;
-        return this;
-    }
-
-    public GrabProjectVersionBuilder setFileName(String fileName) {
-        this.fileName = fileName;
         return this;
     }
 
@@ -30,20 +22,13 @@ public class GrabProjectVersionBuilder {
         bash.append("TMP=\"$(mvn -B help:evaluate -Dexpression=project.version -pl . | grep -v '^\\[')\"\n");
         bash.append("echo \"version: ${TMP}\"\n");
         if (envVarName != null) {
-            bash.append("Saving version to env var: $" + envVarName + "\n");
-            bash.append(String.format("echo \"::set-env name=%s::${TMP}\"\n", envVarName));
-        }
-        if (fileName != null) {
-            Path path = Paths.get(fileName);
-            if (path.getParent() != null) {
-                bash.append(BashUtils.createDirectoryIfNotExist(path.getParent().toString()));
-            }
-
-            bash.append("echo \"${TMP}\" > " + fileName + "\n");
+            bash.append("echo \"Saving version to env var: \\$" + envVarName + "\"\n");
+            bash.append(String.format("echo \"::set-output name=%s::${TMP}\"\n", envVarName));
         }
 
         Map<String, Object> cmd = new LinkedHashMap<>();
         cmd.put("name", "Grab project version");
+        cmd.put("id", "grab-version");
         cmd.put("run", bash.toString());
         return cmd;
     }

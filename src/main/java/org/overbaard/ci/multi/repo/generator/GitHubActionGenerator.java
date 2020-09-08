@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.Usage;
@@ -242,7 +241,7 @@ public class GitHubActionGenerator {
     private void setupDefaultComponentBuildJob(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component) {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
-        componentJobs.put(getComponentBuildId(component.getName()), job);
+        componentJobs.put(getComponentBuildJobId(component.getName()), job);
     }
 
     private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
@@ -255,20 +254,23 @@ public class GitHubActionGenerator {
         componentJobsConfigs.put(component.getName(), config);
         List<JobConfig> jobConfigs = config.getJobs();
         for (JobConfig jobConfig : jobConfigs) {
+            boolean buildJob = config.getBuildJob().equals(jobConfig.getName());
             if (!component.isDebug() || config.getBuildJob().equals(jobConfig.getName())) {
-                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig);
+                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig, buildJob);
             }
         }
     }
 
-    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, JobConfig jobConfig) {
-        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig);
+    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildStep) {
+        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
     }
 
     private Map<String, Object> setupJob(ComponentJobContext context) {
         Component component = context.getComponent();
+
+        final String myVersionEnvVarName = getVersionEnvVarName(component.getName());
 
         Map<String, Object> job = new LinkedHashMap<>();
         String jobName = context.getJobName();
@@ -283,6 +285,10 @@ public class GitHubActionGenerator {
         List<String> needs = context.createNeeds();
         if (needs.size() > 0) {
             job.put("needs", needs);
+        }
+
+        if (context.isGrabVersion()) {
+            job.put("outputs", Collections.singletonMap(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}"));
         }
 
         List<Object> steps = new ArrayList<>();
@@ -305,29 +311,12 @@ public class GitHubActionGenerator {
                         .setVersion(context.getJavaVersion())
                         .build());
 
-            for (Dependency dependency : component.getDependencies()) {
+        if (context.isGrabVersion()) {
             steps.add(
-                    new DownloadArtifactBuilder()
-                            .setPath(PROJECT_VERSIONS_DIRECTORY)
-                            .setName(getVersionArtifactName(dependency.getName()))
-                            .build());
-            steps.add(
-                    new ReadFileIntoEnvVarBuilder()
-                            .setPath(PROJECT_VERSIONS_DIRECTORY + "/" + dependency.getName())
-                            .setEnvVarName(getVersionEnvVarName(dependency.getName()))
+                    new GrabProjectVersionBuilder()
+                            .setEnvVarName(getVersionEnvVarName(component.getName()))
                             .build());
         }
-
-        final String versionFileName = PROJECT_VERSIONS_DIRECTORY + "/" + component.getName();
-        steps.add(
-                new GrabProjectVersionBuilder()
-                        .setFileName(versionFileName)
-                        .build());
-        steps.add(
-                new UploadArtifactBuilder()
-                        .setName(getVersionArtifactName(component.getName()))
-                        .setPath(versionFileName)
-                        .build());
 
         // Make sure that localhost maps to ::1 in the hosts file
         steps.add(new Ipv6LocalhostBuilder().build());
@@ -369,25 +358,38 @@ public class GitHubActionGenerator {
     }
 
 
-    private String getComponentBuildId(String name) {
+    private String getComponentBuildJobId(String name) {
         return name + "-build";
     }
 
-    private String getVersionArtifactName(String name) {
-        return "version-" + name;
-    }
-
     private String getVersionEnvVarName(String name) {
-        return "VERSION_" + name.replace("-", "_");
+        return "version_" + name.replace("-", "_");
     }
 
     private abstract class ComponentJobContext {
         protected final RepoConfig repoConfig;
         protected final Component component;
+        protected final Map<String, ComponentDependencyContext> dependencyContexts;
 
         public ComponentJobContext(RepoConfig repoConfig, Component component) {
             this.repoConfig = repoConfig;
             this.component = component;
+            Map<String, ComponentDependencyContext> dependencyContexts = new LinkedHashMap<>();
+            if (component.getDependencies().size() > 0) {
+                for (Dependency dep : component.getDependencies()) {
+                    String depComponentName = dep.getName();
+                    ComponentJobsConfig componentJobsConfig = componentJobsConfigs.get(depComponentName);
+                    String buildJob;
+                    if (componentJobsConfig == null) {
+                        buildJob = getComponentBuildJobId(depComponentName);
+                    } else {
+                        buildJob = componentJobsConfig.getBuildJob();
+                    }
+                    ComponentDependencyContext depCtx = new ComponentDependencyContext(dep, buildJob);
+                    dependencyContexts.put(depComponentName, depCtx);
+                }
+            }
+            this.dependencyContexts = Collections.unmodifiableMap(dependencyContexts);
         }
 
         public abstract String getJobName();
@@ -406,17 +408,8 @@ public class GitHubActionGenerator {
 
         protected List<String> createNeeds() {
             List<String> needs = new ArrayList<>();
-            if (component.getDependencies().size() > 0) {
-                for (Dependency dep : component.getDependencies()) {
-                    String depComponentName = dep.getName();
-                    ComponentJobsConfig componentJobsConfig = componentJobsConfigs.get(depComponentName);
-                    if (componentJobsConfig == null) {
-                        needs.add(getComponentBuildId(depComponentName));
-                    } else {
-                        String buildJob = componentJobsConfig.getBuildJob();
-                        needs.add(buildJob);
-                    }
-                }
+            for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
+                needs.add(depCtx.buildJobName);
             }
             return needs;
         }
@@ -425,15 +418,20 @@ public class GitHubActionGenerator {
 
         protected String getDependencyVersionMavenProperties() {
             StringBuilder sb = new StringBuilder();
-            for (Dependency dep : component.getDependencies()) {
+            for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
                 sb.append(" ");
-                sb.append("-D" + dep.getProperty() + "=\"${" + getVersionEnvVarName(dep.getName()) + "}\"");
+
+                sb.append("-D" + depCtx.dependency.getProperty() + "=\"${{" + depCtx.versionVarName + "}}\"");
             }
             return sb.toString();
         }
 
         public Map<String, String> createEnv() {
             return Collections.emptyMap();
+        }
+
+        protected boolean isGrabVersion() {
+            return true;
         }
     }
 
@@ -477,10 +475,12 @@ public class GitHubActionGenerator {
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
         private final JobConfig jobConfig;
+        private final boolean buildStep;
 
-        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig) {
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildStep) {
             super(repoConfig, component);
             this.jobConfig = jobConfig;
+            this.buildStep = buildStep;
         }
 
         @Override
@@ -521,7 +521,10 @@ public class GitHubActionGenerator {
 
         @Override
         public Map<String, String> createEnv() {
-            return jobConfig.getJobEnv();
+            Map<String, String> env = new HashMap<>();
+            env.putAll(super.createEnv());
+            env.putAll(jobConfig.getJobEnv());
+            return env;
         }
 
         public String getJavaVersion() {
@@ -536,5 +539,24 @@ public class GitHubActionGenerator {
             return javaVersion;
         }
 
+        @Override
+        protected boolean isGrabVersion() {
+            return buildStep;
+        }
+    }
+
+    private class ComponentDependencyContext {
+        final Dependency dependency;
+        final String buildJobName;
+        final String versionVarName;
+
+        public ComponentDependencyContext(Dependency dependency, String buildJobName) {
+            this.dependency = dependency;
+            this.buildJobName = buildJobName;
+            this.versionVarName =
+                    String.format("needs.%s.outputs.%s",
+                            buildJobName,
+                            getVersionEnvVarName(dependency.getName()));
+        }
     }
 }
