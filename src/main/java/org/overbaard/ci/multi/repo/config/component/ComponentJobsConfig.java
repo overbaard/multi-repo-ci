@@ -7,12 +7,12 @@ import java.util.List;
  */
 public class ComponentJobsConfig {
     private final String componentName;
-    private final String buildStep;
+    private final String buildJob;
     private final List<JobConfig> jobs;
 
-    ComponentJobsConfig(String componentName, String buildStep, List<JobConfig> jobs) {
+    ComponentJobsConfig(String componentName, String buildJob, List<JobConfig> jobs) {
         this.componentName = componentName;
-        this.buildStep = buildStep;
+        this.buildJob = buildJob;
         this.jobs = jobs;
     }
 
@@ -20,8 +20,8 @@ public class ComponentJobsConfig {
         return componentName;
     }
 
-    public String getBuildStep() {
-        return buildStep;
+    public String getBuildJob() {
+        return buildJob;
     }
 
     public List<JobConfig> getJobs() {

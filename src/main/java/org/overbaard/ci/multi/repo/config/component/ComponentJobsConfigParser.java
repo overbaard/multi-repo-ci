@@ -47,7 +47,7 @@ public class ComponentJobsConfigParser extends BaseParser {
 
         Object envInput = input.remove("env");
         Object jobsInput = input.remove("jobs");
-        Object buildStepInput = input.remove("build-step");
+        Object buildJobInput = input.remove("build-job");
         Object javaVersionInput = input.remove("java-version");
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
@@ -55,8 +55,8 @@ public class ComponentJobsConfigParser extends BaseParser {
         if (jobsInput == null) {
             throw new IllegalStateException("No 'jobs' entry");
         }
-        if (buildStepInput == null) {
-            throw new IllegalStateException("No 'build-step' entry");
+        if (buildJobInput == null) {
+            throw new IllegalStateException("No 'build-job' entry");
         }
 
         Map<String, String> mainEnv = parseEnv(envInput);
@@ -67,16 +67,16 @@ public class ComponentJobsConfigParser extends BaseParser {
             throw new IllegalStateException("'jobs' entry is empty");
         }
 
-        if (buildStepInput instanceof String == false) {
-            throw new IllegalStateException("'build-step' entry is not a String: " + buildStepInput);
+        if (buildJobInput instanceof String == false) {
+            throw new IllegalStateException("'build-job' entry is not a String: " + buildJobInput);
         }
-        String buildStep = (String) buildStepInput;
-        if (jobs.get(buildStep) == null) {
-            throw new IllegalStateException("No job called '" + buildStep +
-                    "' referenced by 'exported-jobs' entry: " + buildStep);
+        String buildJob = (String) buildJobInput;
+        if (jobs.get(buildJob) == null) {
+            throw new IllegalStateException("No job called '" + buildJob +
+                    "' referenced by 'build-step' entry: " + buildJob);
         }
 
-        return new ComponentJobsConfig(componentName, createJobName(buildStep), new ArrayList<>(jobs.values()));
+        return new ComponentJobsConfig(componentName, createJobName(buildJob), new ArrayList<>(jobs.values()));
     }
 
     private Map<String, JobConfig> parseJobs(String javaVersion, Map<String, String> mainEnv, Object input) {

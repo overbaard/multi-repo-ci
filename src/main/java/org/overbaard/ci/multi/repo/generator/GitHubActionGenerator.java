@@ -255,7 +255,7 @@ public class GitHubActionGenerator {
         componentJobsConfigs.put(component.getName(), config);
         List<JobConfig> jobConfigs = config.getJobs();
         for (JobConfig jobConfig : jobConfigs) {
-            if (!component.isDebug() || config.getBuildStep().equals(jobConfig.getName())) {
+            if (!component.isDebug() || config.getBuildJob().equals(jobConfig.getName())) {
                 setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig);
             }
         }
@@ -332,7 +332,7 @@ public class GitHubActionGenerator {
         // Make sure that localhost maps to ::1 in the hosts file
         steps.add(new Ipv6LocalhostBuilder().build());
 
-        steps.addAll(context.createBuildSteps());
+        steps.addAll(context.createBuildJobs());
 
         if (context.getComponent().isDebug()) {
             steps.add(new TmateDebugBuilder().build());
@@ -413,15 +413,15 @@ public class GitHubActionGenerator {
                     if (componentJobsConfig == null) {
                         needs.add(getComponentBuildId(depComponentName));
                     } else {
-                        String buildStep = componentJobsConfig.getBuildStep();
-                        needs.add(buildStep);
+                        String buildJob = componentJobsConfig.getBuildJob();
+                        needs.add(buildJob);
                     }
                 }
             }
             return needs;
         }
 
-        abstract List<Map<String, Object>> createBuildSteps();
+        abstract List<Map<String, Object>> createBuildJobs();
 
         protected String getDependencyVersionMavenProperties() {
             StringBuilder sb = new StringBuilder();
@@ -448,7 +448,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        List<Map<String, Object>> createBuildSteps() {
+        List<Map<String, Object>> createBuildJobs() {
             return Collections.singletonList(
                     new MavenBuildBuilder()
                             .setOptions(getMavenOptions(component))
@@ -498,7 +498,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        List<Map<String, Object>> createBuildSteps() {
+        List<Map<String, Object>> createBuildJobs() {
             List<JobRunElementConfig> runElementConfigs = jobConfig.getRunElements();
             Map<String, Object> build = new HashMap<>();
             build.put("name", "Maven Build");

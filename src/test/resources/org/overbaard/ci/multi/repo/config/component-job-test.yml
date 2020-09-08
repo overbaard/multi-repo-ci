@@ -2,7 +2,7 @@ env:
   P1: 1
   P2: 22
 java-version: 13
-build-step: build
+build-job: build
 jobs:
   build:
     env:
