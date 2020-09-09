@@ -1,5 +1,7 @@
 package org.overbaard.ci.multi.repo.maven.backup;
 
+import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.MERGE;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -58,7 +60,7 @@ public class OverlayBackedUpMavenArtifacts {
 
     private void overlayComponent(Path componentBackup) throws IOException {
         deleteExistingPathsInMavenRepo(componentBackup);
-        Files.walkFileTree(componentBackup, new CopyDirectoryVisitor(componentBackup, mavenRepoRoot));
+        Files.walkFileTree(componentBackup, new CopyDirectoryVisitor(MERGE, componentBackup, mavenRepoRoot));
     }
 
     private void deleteExistingPathsInMavenRepo(Path componentBackup) throws IOException {
