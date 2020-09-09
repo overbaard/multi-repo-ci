@@ -23,6 +23,8 @@ import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 
 /**
+ * Backs up the maven artifacts created by a maven project
+ *
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class BackupMavenArtifacts {

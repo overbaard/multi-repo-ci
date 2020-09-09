@@ -13,6 +13,8 @@ import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifactsToolCommand;
 import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
 import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifactsToolCommand;
+import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifacts;
+import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifactsToolCommand;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -25,6 +27,7 @@ public class Main {
         map.put(GitHubActionGenerator.GENERATE_WORKFLOW, new GitHubActionGeneratorToolCommand());
         map.put(CopyLogArtifacts.COPY_LOGS, new CopyLogArtifactsToolCommand());
         map.put(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS, new BackupMavenArtifactsToolCommand());
+        map.put(OverlayBackedUpMavenArtifacts.OVERLAY_BACKED_UP_MAVEN_ARTIFACTS, new OverlayBackedUpMavenArtifactsToolCommand());
         COMMANDS = Collections.unmodifiableMap(map);
     }
 

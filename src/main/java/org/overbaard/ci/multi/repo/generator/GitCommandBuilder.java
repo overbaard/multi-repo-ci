@@ -1,5 +1,6 @@
 package org.overbaard.ci.multi.repo.generator;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -10,9 +11,10 @@ public class GitCommandBuilder {
     private String workingDirectory;
     private String gitUser;
     private String gitEmail;
-    private String[] addFiles;
+    private String[] addFiles = new String[0];
     private String commitMessage;
     private boolean push;
+    private boolean rebase;
     private IfCondition ifCondition;
 
     GitCommandBuilder setWorkingDirectory(String workingDirectory) {
@@ -33,6 +35,11 @@ public class GitCommandBuilder {
 
     GitCommandBuilder setCommitMessage(String commitMessage) {
         this.commitMessage = commitMessage;
+        return this;
+    }
+
+    GitCommandBuilder setRebase() {
+        this.rebase = true;
         return this;
     }
 
@@ -71,9 +78,15 @@ public class GitCommandBuilder {
         if (commitMessage != null) {
             run.append("git commit -m \"" + commitMessage + "\"\n");
         }
-        if (push) {
-            // TODO figure out the branch
+
+        if (push || rebase) {
             run.append("TMP=$(git branch | sed -n -e 's/^\\* \\(.*\\)/\\1/p')\n");
+            //Rebase before doing the push
+            run.append("git fetch origin\n");
+            run.append("git rebase origin/${TMP}\n");
+        }
+
+        if (push) {
             run.append("git push origin ${TMP}\n");
         }
 

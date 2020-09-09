@@ -29,6 +29,7 @@ import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
+import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -45,12 +46,21 @@ public class GitHubActionGenerator {
 
     private static final String DEFAULT_JAVA_VERSION = "11";
 
-
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
-    static final String PROJECT_VERSIONS_DIRECTORY = ".project_versions";
     static final Path REPO_CONFIG_FILE = Paths.get(".repo-config/config.yml");
     static final Path COMPONENT_JOBS_DIR = Paths.get(".repo-config/component-jobs");
     static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/repo-backups");
+    final static Path MAVEN_REPO;
+    static {
+        if (System.getenv("HOME") == null) {
+            throw new IllegalStateException("No HOME env var set!");
+        }
+        MAVEN_REPO = Paths.get(System.getenv("HOME"), ".m2/repository");
+    }
+
+
+
+
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
     private final Path workflowFile;
@@ -300,7 +310,7 @@ public class GitHubActionGenerator {
                         .setRepo(component.getOrg(), component.getName())
                         .setBranch(component.getBranch())
                         .build());
-        // Get this repo so that we have a copy of the .github/CopyLogArtifacts.java file for jbang to run
+        // Get this repo so that we have the tooling contained in this project. We will run various of these later.
         steps.add(
                 new CheckoutBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
@@ -312,6 +322,22 @@ public class GitHubActionGenerator {
                 new SetupJavaBuilder()
                         .setVersion(context.getJavaVersion())
                         .build());
+
+        if (component.getDependencies().size() > 0) {
+            // Get the maven artifact backups
+            steps.add(
+                    new GitCommandBuilder()
+                            .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+                            .setRebase()
+                            .build());
+
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                            .setCommand(OverlayBackedUpMavenArtifacts.OVERLAY_BACKED_UP_MAVEN_ARTIFACTS)
+                            .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
+                            .build());
+        }
 
         if (context.isGrabVersion()) {
             steps.add(
@@ -364,10 +390,6 @@ public class GitHubActionGenerator {
     }
 
     private void backupMavenArtifactsProducedByBuild(ComponentJobContext context, List<Object> steps) {
-        if (System.getenv("HOME") == null) {
-            throw new IllegalStateException("No HOME env var set!");
-        }
-        String mavenRepo = System.getenv("HOME") + "/.m2/repository";
         Path rootPom = Paths.get("pom.xml");
         Path backupPath = MAVEN_REPO_BACKUPS_ROOT.resolve(context.component.getName());
 
@@ -376,7 +398,7 @@ public class GitHubActionGenerator {
                 new RunMultiRepoCiToolCommandBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
                         .setCommand(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS)
-                        .addArgs(rootPom.toAbsolutePath().toString(), mavenRepo, backupPath.toAbsolutePath().toString())
+                        .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
                         .setIfCondition(IfCondition.SUCCESS)
                         .build());
 
