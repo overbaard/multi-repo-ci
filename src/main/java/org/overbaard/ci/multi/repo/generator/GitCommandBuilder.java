@@ -11,8 +11,10 @@ public class GitCommandBuilder {
     private String gitUser;
     private String gitEmail;
     private String[] addFiles = new String[0];
+    private String[] removeFiles = new String[0];
     private String commitMessage;
     private boolean push;
+    private boolean deleteRemoteBranch;
     private boolean rebase;
     private IfCondition ifCondition;
 
@@ -32,6 +34,11 @@ public class GitCommandBuilder {
         return this;
     }
 
+    GitCommandBuilder removeFiles(String... removeFiles) {
+        this.removeFiles = removeFiles;
+        return this;
+    }
+
     GitCommandBuilder setCommitMessage(String commitMessage) {
         this.commitMessage = commitMessage;
         return this;
@@ -44,6 +51,11 @@ public class GitCommandBuilder {
 
     GitCommandBuilder setPush() {
         this.push = true;
+        return this;
+    }
+
+    public GitCommandBuilder setDeleteRemoteBranch() {
+        this.deleteRemoteBranch = true;
         return this;
     }
 
@@ -74,6 +86,14 @@ public class GitCommandBuilder {
             }
             run.append("\n");
         }
+        if (removeFiles.length > 0) {
+            run.append("git rm ");
+            for (String file : removeFiles) {
+                run.append(file);
+                run.append(" ");
+            }
+            run.append("\n");
+        }
         if (commitMessage != null) {
             run.append("git commit -m \"" + commitMessage + "\"\n");
         }
@@ -89,6 +109,11 @@ public class GitCommandBuilder {
             run.append("git push origin ${TMP}\n");
         }
 
+        if (deleteRemoteBranch) {
+            run.append("TMP=$(git branch | sed -n -e 's/^\\* \\(.*\\)/\\1/p')\n");
+            run.append("git push origin :${TMP}\n");
+        }
+
         command.put("run", run.toString());
 
         if (ifCondition != null) {
@@ -97,4 +122,5 @@ public class GitCommandBuilder {
 
         return command;
     }
+
 }

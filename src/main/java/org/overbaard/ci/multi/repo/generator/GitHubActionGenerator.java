@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -69,6 +70,7 @@ public class GitHubActionGenerator {
 
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
+    final Map<String, Object> jobs = new LinkedHashMap<>();
     private final Set<String> buildJobNames = new LinkedHashSet<>();
     private final Path workflowFile;
     private final Path yamlConfig;
@@ -188,6 +190,8 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
+        setupCleanupJob(triggerConfig);
+
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
         options.setPrettyFlow(true);
@@ -200,6 +204,7 @@ public class GitHubActionGenerator {
         System.out.println("-----------------");
         Files.write(workflowFile, output.getBytes(StandardCharsets.UTF_8));
     }
+
 
     private void setupWorkFlowHeaderSection(RepoConfig repoConfig, TriggerConfig triggerConfig) {
         workflow.put("name", triggerConfig.getName());
@@ -228,7 +233,7 @@ public class GitHubActionGenerator {
 
         this.jobLogsArtifactName = createJobLogsArtifactName(triggerConfig);
 
-        final Map<String, Object> jobs = new LinkedHashMap<>();
+        jobs.put("cancel-previous-runs", new CancelPreviousRunsJobBuilder(branchName).build());
 
         for (Component component : triggerConfig.getComponents()) {
             Path componentJobsFile = COMPONENT_JOBS_DIR.resolve(component.getName() + ".yml");
@@ -308,8 +313,9 @@ public class GitHubActionGenerator {
 
         final String myVersionEnvVarName = getVersionEnvVarName(component.getName());
 
-        Map<String, Object> job = new LinkedHashMap<>();
         String jobName = context.getJobName();
+
+        Map<String, Object> job = new LinkedHashMap<>();
         job.put("name", jobName);
         job.put("runs-on", "ubuntu-latest");
 
@@ -338,6 +344,7 @@ public class GitHubActionGenerator {
                         .setBranch(component.getBranch())
                         .build());
         // Get this repo so that we have the tooling contained in this project. We will run various of these later.
+        // This is also used for sharing files between jobs
         steps.add(
                 new CheckoutBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
@@ -458,7 +465,7 @@ public class GitHubActionGenerator {
             jobNamesAndVersionVariables.put(buildJobName, hash);
         }
 
-        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null ) {
+        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
             IssueStatusReportJobBuilder jobBuilder = new IssueStatusReportJobBuilder(issueNumber);
             jobBuilder.setNeeds(allJobNames);
             jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
@@ -469,6 +476,29 @@ public class GitHubActionGenerator {
             return jobBuilder.build();
         }
         return Collections.emptyMap();
+    }
+
+    private void setupCleanupJob(TriggerConfig triggerConfig) {
+        Map<String, Object> job = new LinkedHashMap<>();
+        job.put("name", "cleanup-" + triggerConfig.getName().replace(' ', '-'));
+        job.put("runs-on", "ubuntu-latest");
+        job.put("needs", new ArrayList<>(jobs.keySet()));
+        job.put("if", IfCondition.ALWAYS.getValue());
+        List<Object> steps = new ArrayList<>();
+        job.put("steps", steps);
+
+        steps.add(
+                new CheckoutBuilder()
+                        .setPath(CI_TOOLS_CHECKOUT_FOLDER)
+                        .setBranch(branchName)
+                        .build());
+        steps.add(
+                new GitCommandBuilder()
+                        .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+                        .setDeleteRemoteBranch()
+                        .build());
+
+        jobs.put("cleanup-job", job);
     }
 
     private String getComponentBuildJobId(String name) {
@@ -588,12 +618,12 @@ public class GitHubActionGenerator {
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
         private final JobConfig jobConfig;
-        private final boolean buildStep;
+        private final boolean buildJob;
 
-        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildStep) {
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildJob) {
             super(repoConfig, component);
             this.jobConfig = jobConfig;
-            this.buildStep = buildStep;
+            this.buildJob = buildJob;
         }
 
         @Override
@@ -654,7 +684,7 @@ public class GitHubActionGenerator {
 
         @Override
         protected boolean isBuildJob() {
-            return buildStep;
+            return buildJob;
         }
     }
 
