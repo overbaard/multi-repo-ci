@@ -50,7 +50,7 @@ public class RunMultiRepoCiToolCommandBuilder {
         sb.append("\n");
 
         Map<String, Object> steps = new LinkedHashMap<>();
-        steps.put("name", "Run multi-repo-ci-tool '" + steps + "' command");
+        steps.put("name", "Run multi-repo-ci-tool '" + command + "' command");
         if (ifCondition != null) {
             steps.put("if", ifCondition.getValue());
         }

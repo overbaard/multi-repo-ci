@@ -22,7 +22,7 @@ public class CopyLogArtifacts {
         this.outputPath = outputPath;
     }
 
-    public static void copy(String[] args) throws Exception {
+    static void copy(String[] args) throws Exception {
         System.out.println(args.length);
         if (args.length != 2) {
             throw new Exception("Wrong number of args: " + Arrays.asList(args));
