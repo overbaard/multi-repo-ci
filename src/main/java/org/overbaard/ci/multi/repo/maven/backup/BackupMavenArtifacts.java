@@ -1,5 +1,7 @@
 package org.overbaard.ci.multi.repo.maven.backup;
 
+import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.SPLIT;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -109,7 +111,7 @@ public class BackupMavenArtifacts {
 
     private void copyArtifacts() throws Exception {
         if (Files.exists(backupLocation)) {
-            // Delete the backup director
+            // Delete the backup directory
             Files.walkFileTree(backupLocation, new SimpleFileVisitor<Path>(){
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
@@ -141,6 +143,6 @@ public class BackupMavenArtifacts {
         }
 
         Files.createDirectories(targetDir);
-        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(sourceDir, targetDir));
+        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(SPLIT, sourceDir, targetDir));
     }
 }
