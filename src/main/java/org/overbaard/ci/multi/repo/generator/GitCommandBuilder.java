@@ -82,7 +82,7 @@ public class GitCommandBuilder {
         if (push || rebase) {
             run.append("TMP=$(git branch | sed -n -e 's/^\\* \\(.*\\)/\\1/p')\n");
             //Rebase before doing the push
-            run.append("git fetch origin\n");
+            run.append("git fetch origin ${TMP}\n");
             run.append("git rebase origin/${TMP}\n");
         }
 
