@@ -42,7 +42,7 @@ public class CopyLogArtifacts {
     }
 
     private void copyArtifacts() throws Exception {
-        Files.walkFileTree(inputPath, new SimpleFileVisitor<Path>() {
+        Files.walkFileTree(inputPath.toAbsolutePath(), new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 String fileName = file.getFileName().toString();

@@ -24,8 +24,8 @@ public class OverlayBackedUpMavenArtifacts {
     private final Path backupsFolder;
 
     public OverlayBackedUpMavenArtifacts(Path mavenRepoRoot, Path backupsFolder) {
-        this.mavenRepoRoot = mavenRepoRoot;
-        this.backupsFolder = backupsFolder;
+        this.mavenRepoRoot = mavenRepoRoot.toAbsolutePath();
+        this.backupsFolder = backupsFolder.toAbsolutePath();
     }
 
     static void overlay(String[] args) throws Exception {
@@ -77,6 +77,9 @@ public class OverlayBackedUpMavenArtifacts {
         });
 
         for (Path repoDir : deletePaths) {
+            if (!Files.exists(repoDir)) {
+                break;
+            }
             Files.walkFileTree(repoDir, new SimpleFileVisitor<Path>(){
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {

@@ -51,15 +51,15 @@ public class BackupMavenArtifacts {
             throw new IllegalStateException("Need the following three args: <root pom path> <maven repo root> <backupLocation>");
         }
 
-        Path rootPom = Paths.get(args[0]);
+        Path rootPom = Paths.get(args[0]).toAbsolutePath();
         if (!Files.exists(rootPom)) {
             throw new IllegalStateException("Root pom path does not exist: " + rootPom);
         }
-        Path mavenRepo = Paths.get(args[1]);
+        Path mavenRepo = Paths.get(args[1]).toAbsolutePath();
         if (!Files.exists(mavenRepo)) {
             throw new IllegalStateException("Maven repo does not exist: " + rootPom);
         }
-        Path backupLocation = Paths.get(args[2]);
+        Path backupLocation = Paths.get(args[2]).toAbsolutePath();
 
         BackupMavenArtifacts grabber = new BackupMavenArtifacts(rootPom, mavenRepo, backupLocation);
         grabber.recordModules(rootPom);

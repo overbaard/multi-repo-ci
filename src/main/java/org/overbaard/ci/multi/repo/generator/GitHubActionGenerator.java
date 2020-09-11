@@ -323,7 +323,7 @@ public class GitHubActionGenerator {
                         .setVersion(context.getJavaVersion())
                         .build());
 
-        if (component.getDependencies().size() > 0) {
+        if (needs.size() > 0) {
             // Get the maven artifact backups
             steps.add(
                     new GitCommandBuilder()
