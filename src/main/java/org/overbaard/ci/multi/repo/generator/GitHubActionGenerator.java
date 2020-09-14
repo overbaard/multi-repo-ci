@@ -314,6 +314,7 @@ public class GitHubActionGenerator {
         steps.add(
                 new CheckoutBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
+                        .setBranch(branchName)
                         .build());
         steps.add(
                 new CacheMavenRepoBuilder()
