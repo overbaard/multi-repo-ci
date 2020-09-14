@@ -8,17 +8,24 @@ import java.util.Map;
  */
 public class RepoConfig {
 
+    public static final boolean DEFAULT_COMMENTS_REPORTING = true;
+
     private final Map<String, String> env;
     private final String javaVersion;
+    private final boolean commentsReporting;
+    private final String successLabel;
+    private final String failureLabel;
 
-    RepoConfig(Map<String, String> env, String javaVersion) {
+    RepoConfig(Map<String, String> env, String javaVersion, boolean commentsReporting, String successLabel, String failureLabel) {
         this.env = env;
         this.javaVersion = javaVersion;
+        this.commentsReporting = commentsReporting;
+        this.successLabel = successLabel;
+        this.failureLabel = failureLabel;
     }
 
     RepoConfig() {
-        this.env = Collections.emptyMap();
-        this.javaVersion = null;
+        this(Collections.emptyMap(), null, DEFAULT_COMMENTS_REPORTING, null, null);
     }
 
     public Map<String, String> getEnv() {
@@ -27,5 +34,17 @@ public class RepoConfig {
 
     public String getJavaVersion() {
         return javaVersion;
+    }
+
+    public boolean isCommentsReporting() {
+        return commentsReporting;
+    }
+
+    public String getSuccessLabel() {
+        return successLabel;
+    }
+
+    public String getFailureLabel() {
+        return failureLabel;
     }
 }

@@ -41,6 +41,7 @@ public class RepoConfigParser extends BaseParser {
 
         Object envInput = input.remove("env");
         Object javaVersionInput = input.remove("java-version");
+        Object issueReportingInput = input.remove("issue-reporting");
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
@@ -49,6 +50,58 @@ public class RepoConfigParser extends BaseParser {
         Map<String, String> env = parseEnv(envInput);
         String javaVersion = parseJavaVersion(javaVersionInput);
 
-        return new RepoConfig(env, javaVersion);
+        boolean commentsReporting = RepoConfig.DEFAULT_COMMENTS_REPORTING;
+        String successLabel = null;
+        String failureLabel = null;
+
+        if (issueReportingInput != null) {
+            if (!(issueReportingInput instanceof Map)) {
+                throw new IllegalStateException("'issue-reporting' must be an object");
+            }
+            Map<String, Object> issueReporting = (Map<String, Object>) issueReportingInput;
+            Object commentsInput = issueReporting.remove("comments");
+            Object labelsInput = issueReporting.remove("labels");
+
+            if (input.size() > 0) {
+                throw new IllegalStateException("Unknown 'issue-reporting' entries: " + issueReporting.keySet());
+            }
+
+            if (commentsInput != null) {
+                if (!(commentsInput instanceof Boolean)) {
+                    throw new IllegalStateException("'comments' must be either true or false (without quotes)");
+                }
+                commentsReporting = (Boolean) commentsInput;
+            }
+
+
+            if (labelsInput != null) {
+                if (!(labelsInput instanceof Map)) {
+                    throw new IllegalStateException("'labels' must be an object");
+                }
+                Map<String, Object> labels = (Map<String, Object>) labelsInput;
+                Object successInput = labels.remove("success");
+                Object failureInput = labels.remove("failure");
+                if (labels.size() > 0) {
+                    throw new IllegalStateException("Unknown 'labels' entries: " + issueReporting.keySet());
+                }
+                if (successInput == null) {
+                    throw new IllegalStateException("Missing 'success' entry for 'labels'");
+                }
+                if (failureInput == null) {
+                    throw new IllegalStateException("Missing 'failure' entry for 'labels'");
+                }
+                if (!(successInput instanceof String)) {
+                    throw new IllegalStateException("'success' must be a string");
+                }
+                if (!(failureInput instanceof String)) {
+                    throw new IllegalStateException("'failure' must be a string");
+                }
+                successLabel = (String) successInput;
+                failureLabel = (String) failureInput;
+            }
+        }
+
+        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel);
     }
+
 }
