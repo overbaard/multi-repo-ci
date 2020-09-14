@@ -4,7 +4,6 @@ import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.Larg
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;

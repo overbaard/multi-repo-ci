@@ -8,8 +8,8 @@ import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Test;
-import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.Component;
+import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 
 /**

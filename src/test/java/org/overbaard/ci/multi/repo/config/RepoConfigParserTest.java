@@ -3,16 +3,11 @@ package org.overbaard.ci.multi.repo.config;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
-import org.overbaard.ci.multi.repo.config.trigger.Component;
-import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
-import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
