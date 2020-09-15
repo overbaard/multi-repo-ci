@@ -67,10 +67,10 @@ public class GitCommandBuilder {
             run.append("git config --global user.email \"" + gitEmail + "\"\n");
         }
         if (addFiles.length > 0) {
-            run.append("git add ");
+            run.append("git add");
             for (String file : addFiles) {
-                run.append(file);
                 run.append(" ");
+                run.append(file);
             }
             run.append("\n");
         }
