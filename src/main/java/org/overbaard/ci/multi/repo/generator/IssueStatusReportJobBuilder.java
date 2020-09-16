@@ -1,6 +1,7 @@
 package org.overbaard.ci.multi.repo.generator;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.Set;
  */
 public class IssueStatusReportJobBuilder {
 
-    private static final String NODE_ENV = "process.env.";
+    private static final String NODE_ENV_PREFIX = "process.env.";
 
     private final int issueNumber;
     private Set<String> needs;
@@ -63,20 +64,32 @@ public class IssueStatusReportJobBuilder {
         if (needs != null) {
             job.put("needs", new ArrayList<>(needs));
         }
+        // 'Translate' the variables containing the SHAs since they contain hyphens
+        // and those don't work in the JavaScript world.
+        Map<String, Object> env = new LinkedHashMap<>();
+        Map<String, String> shaEnvVarsForJobs = new HashMap<>();
+        for (Map.Entry<String, String> entry : jobNamesAndVersionVariables.entrySet()) {
+            String envVar = entry.getKey().replace('-', '_') + "_git_sha";
+            env.put(envVar, "${{" + entry.getValue() + "}}");
+            shaEnvVarsForJobs.put(entry.getKey(), envVar);
+        }
+        job.put("env", env);
+
+
         List<Object> steps = new ArrayList<>();
         job.put("steps", steps);
 
         if (successLabel != null || successMessage != null) {
-            steps.add(createScriptStep(IfCondition.SUCCESS, successLabel, failureLabel, successMessage));
+            steps.add(createScriptStep(IfCondition.SUCCESS, shaEnvVarsForJobs, successLabel, failureLabel, successMessage));
         }
         if (failureLabel != null || failureMessage != null) {
-            steps.add(createScriptStep(IfCondition.FAILURE, failureLabel, successLabel, failureMessage));
+            steps.add(createScriptStep(IfCondition.FAILURE, shaEnvVarsForJobs, failureLabel, successLabel, failureMessage));
         }
 
         return job;
     }
 
-    private Map<String, Object> createScriptStep(IfCondition ifCondition, String addLabel, String removeLabel, String issueComment) {
+    private Map<String, Object> createScriptStep(IfCondition ifCondition, Map<String, String> shaEnvVarsForJobs, String addLabel, String removeLabel, String issueComment) {
         GitScriptStepBuilder script = new GitScriptStepBuilder(issueNumber);
         script.setName(ifCondition == IfCondition.SUCCESS ? "report-success" : "report-failure");
         script.setIfCondition(ifCondition);
@@ -90,11 +103,12 @@ public class IssueStatusReportJobBuilder {
             StringBuilder formattedComment = new StringBuilder();
             // We need to format this for javascript, which is a bit odd
             formattedComment.append("'" + issueComment + "\\n\\n'\n");
-            if (jobNamesAndVersionVariables.size() > 0) {
+            if (shaEnvVarsForJobs.size() > 0) {
                 formattedComment.append("  + 'These are the job names and their respective SHA-1 hashes:\\n\\n'\n");
-                for (Map.Entry<String, String> entry : jobNamesAndVersionVariables.entrySet()) {
+                for (Map.Entry<String, String> entry : shaEnvVarsForJobs.entrySet()) {
                     String component = entry.getKey();
-                    String env = NODE_ENV + entry.getValue();
+                    // We need this prefix so
+                    String env = NODE_ENV_PREFIX + entry.getValue();
                     formattedComment.append("  + '" + component + ": ' + " + env + " + '\\n'\n");
                 }
             }
