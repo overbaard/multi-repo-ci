@@ -110,6 +110,22 @@ the java-version to use for the generated [setup-java action](https://github.com
 overridden by the user in the issue YAML. Also, in the next section we can set up the default java version to use when 
 tailoring component builds.
 
+#### Status reporting
+By default once the resulting workflow has terminated, a comment will be left on the issue indicating success 
+or failure. If you want to turn this off, or add the ability to configure labels to be added to the issue 
+indicating success or failure, add a `issue-reporting` section to the `.repo-config/config.yml`. The following
+turns off comments, and adds the label `Passed` on success, and the `Failure` label on failure.
+
+```
+issue-reporting:
+  comments: true
+  labels:
+   success: Passed
+   failure: Failure
+
+```
+
+
 ### Tailoring build
 By default with what we have seen so far, the tool will generate a workflow file which simply does the following steps for each component:
 * Check out the specified repo + branch
@@ -201,7 +217,6 @@ Note that we use `package` here to not pollute the cached maven repository.
       - mvn: package ${MAVEN_TEST_PARAMS} -pl testsuite/domain
 ```
 This job runs a sub-section of the testsuite in the testsuite/domain folder. We would do the same for other testsuite modules we want to run in parallel. Both `ts-smoke` and `ts-domain` wait for the `build` job to complete before they are run. But the nice thing is they can run in parallel, which speeds testing up a lot.
-
 
 
 

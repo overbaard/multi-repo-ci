@@ -2,3 +2,8 @@ env:
   OPT: abc def
   MY_VAR: Test
 java-version: 14
+issue-reporting:
+  comments: false
+  labels:
+    success: Pass-Label
+    failure: Fail-Label

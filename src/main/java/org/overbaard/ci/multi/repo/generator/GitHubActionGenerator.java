@@ -11,9 +11,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.Usage;
@@ -38,11 +41,15 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class GitHubActionGenerator {
     public static final String GENERATE_WORKFLOW = "generate-workflow";
+    public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
 
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
     private static final String ARG_ISSUE = "--issue";
     private static final String ARG_BRANCH = "--branch";
+
+    private static final String REV_PARSE_STEP_ID = "git-rev-parse";
+    private static final String REV_PARSE_STEP_OUTPUT = "git-sha";
 
     private static final String DEFAULT_JAVA_VERSION = "11";
 
@@ -63,13 +70,14 @@ public class GitHubActionGenerator {
 
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
+    private final Set<String> buildJobNames = new LinkedHashSet<>();
     private final Path workflowFile;
     private final Path yamlConfig;
     private final String branchName;
-    private final String issueNumber;
+    private final int issueNumber;
     private String jobLogsArtifactName;
 
-    private GitHubActionGenerator(Path workflowFile, Path yamlConfig, String branchName, String issueNumber) {
+    private GitHubActionGenerator(Path workflowFile, Path yamlConfig, String branchName, int issueNumber) {
         this.workflowFile = workflowFile;
         this.yamlConfig = yamlConfig;
         this.branchName = branchName;
@@ -89,7 +97,7 @@ public class GitHubActionGenerator {
         System.out.println("Starting cross-component job generation");
         Path yamlConfig = null;
         String branchName = null;
-        String issueNumber = null;
+        String issueNumberString = null;
         Path workflowDir = null;
         for (String arg : args) {
             try {
@@ -111,7 +119,7 @@ public class GitHubActionGenerator {
                         System.exit(1);
                     }
                 } else if (arg.startsWith(ARG_ISSUE)) {
-                    issueNumber = arg.substring(ARG_ISSUE.length() + 1);
+                    issueNumberString = arg.substring(ARG_ISSUE.length() + 1);
                 } else if (arg.startsWith(ARG_BRANCH)) {
                     branchName = arg.substring(ARG_BRANCH.length() + 1);
                 } else {
@@ -124,14 +132,15 @@ public class GitHubActionGenerator {
             }
         }
 
-        if (workflowDir == null || yamlConfig == null || branchName == null || issueNumber == null) {
+
+        if (workflowDir == null || yamlConfig == null || branchName == null || issueNumberString == null) {
             if (workflowDir == null) {
                 System.err.println(ARG_WORKFLOW_DIR + " was not specified!");
             }
             if (yamlConfig == null) {
                 System.err.println(ARG_YAML + " was not specified!");
             }
-            if (issueNumber == null) {
+            if (issueNumberString == null) {
                 System.err.println(ARG_ISSUE + " was not specified!");
             }
             if (branchName == null) {
@@ -141,7 +150,14 @@ public class GitHubActionGenerator {
             System.exit(1);
         }
 
-        Path workflowFile = workflowDir.resolve("ci-" + issueNumber + ".yml");
+        int issueNumber = 0;
+        try {
+            issueNumber = Integer.parseInt(issueNumberString);
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("Issue number '" + issueNumberString + "' is not an integer");
+        }
+
+        Path workflowFile = workflowDir.resolve("ci-" + issueNumberString + ".yml");
         return new GitHubActionGenerator(workflowFile, yamlConfig, branchName, issueNumber);
     }
 
@@ -213,7 +229,7 @@ public class GitHubActionGenerator {
 
         this.jobLogsArtifactName = createJobLogsArtifactName(triggerConfig);
 
-        final Map<String, Object> componentJobs = new LinkedHashMap<>();
+        final Map<String, Object> jobs = new LinkedHashMap<>();
 
         for (Component component : triggerConfig.getComponents()) {
             Path componentJobsFile = COMPONENT_JOBS_DIR.resolve(component.getName() + ".yml");
@@ -223,14 +239,16 @@ public class GitHubActionGenerator {
             }
             if (!Files.exists(componentJobsFile)) {
                 System.out.println("No " + componentJobsFile + " found. Setting up default job for component: " + component.getName());
-                setupDefaultComponentBuildJob(componentJobs, repoConfig, component);
+                setupDefaultComponentBuildJob(jobs, repoConfig, component);
             } else {
                 System.out.println("using " + componentJobsFile + " to add job(s) for component: " + component.getName());
-                setupComponentBuildJobsFromFile(componentJobs, repoConfig, component, componentJobsFile);
+                setupComponentBuildJobsFromFile(jobs, repoConfig, component, componentJobsFile);
             }
         }
-        workflow.put("jobs", componentJobs);
+        jobs.put("job-status-report", setupReportingJob(jobs.keySet(), repoConfig));
+        workflow.put("jobs", jobs);
     }
+
 
     private String createJobLogsArtifactName(TriggerConfig triggerConfig) {
         final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMdd-HHmmss");
@@ -254,6 +272,10 @@ public class GitHubActionGenerator {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(getComponentBuildJobId(component.getName()), job);
+        if (context.isBuildStep()) {
+            buildJobNames.add(getComponentBuildJobId(context.getJobName()));
+        }
+
     }
 
     private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
@@ -277,6 +299,9 @@ public class GitHubActionGenerator {
         ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
+        if (context.isBuildStep()) {
+            buildJobNames.add(context.getJobName());
+        }
     }
 
     private Map<String, Object> setupJob(ComponentJobContext context) {
@@ -299,8 +324,11 @@ public class GitHubActionGenerator {
             job.put("needs", needs);
         }
 
-        if (context.isGrabVersion()) {
-            job.put("outputs", Collections.singletonMap(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}"));
+        if (context.isBuildStep()) {
+            Map<String, String> outputs = new HashMap<>();
+            outputs.put(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}");
+            outputs.put(REV_PARSE_STEP_OUTPUT, "${{steps." + REV_PARSE_STEP_ID + ".outputs." + REV_PARSE_STEP_OUTPUT + "}}");
+            job.put("outputs", outputs);
         }
 
         List<Object> steps = new ArrayList<>();
@@ -340,11 +368,14 @@ public class GitHubActionGenerator {
                             .build());
         }
 
-        if (context.isGrabVersion()) {
+        if (context.isBuildStep()) {
             steps.add(
                     new GrabProjectVersionBuilder()
                             .setEnvVarName(getVersionEnvVarName(component.getName()))
                             .build());
+            steps.add(
+                new GitRevParseIntoOutputVariableBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
+                    .build());
         }
 
         // Make sure that localhost maps to ::1 in the hosts file
@@ -356,7 +387,7 @@ public class GitHubActionGenerator {
             steps.add(new TmateDebugBuilder().build());
         }
 
-        if (context.isGrabVersion()) {
+        if (context.isBuildStep()) {
             backupMavenArtifactsProducedByBuild(context, steps);
         }
 
@@ -415,6 +446,31 @@ public class GitHubActionGenerator {
                         .build());
     }
 
+    private Map<String, Object> setupReportingJob(Set<String> allJobNames, RepoConfig repoConfig) {
+
+        // Let the Job builder do the proper formatting of the message
+        // It currently uses the github-script action which uses JavaScript
+        // so it is quite 'specialised'
+        Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
+        for (String buildJobName : buildJobNames) {
+            String hash = String.format("needs.%s.outputs.%s",
+                    buildJobName,
+                    REV_PARSE_STEP_OUTPUT);
+            jobNamesAndVersionVariables.put(buildJobName, hash);
+        }
+
+        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null ) {
+            IssueStatusReportJobBuilder jobBuilder = new IssueStatusReportJobBuilder(issueNumber);
+            jobBuilder.setNeeds(allJobNames);
+            jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
+            jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
+            jobBuilder.setSuccessMessage("The job passed!");
+            jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
+            jobBuilder.setFailureMessage("The job failed");
+            return jobBuilder.build();
+        }
+        return Collections.emptyMap();
+    }
 
     private String getComponentBuildJobId(String name) {
         return name + "-build";
@@ -488,7 +544,7 @@ public class GitHubActionGenerator {
             return Collections.emptyMap();
         }
 
-        protected boolean isGrabVersion() {
+        protected boolean isBuildStep() {
             return true;
         }
     }
@@ -598,7 +654,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        protected boolean isGrabVersion() {
+        protected boolean isBuildStep() {
             return buildStep;
         }
     }

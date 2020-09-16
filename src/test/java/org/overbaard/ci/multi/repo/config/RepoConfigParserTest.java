@@ -23,6 +23,9 @@ public class RepoConfigParserTest {
         Assert.assertEquals(0, repoConfig.getEnv().size());
 
         Assert.assertNull(repoConfig.getJavaVersion());
+        Assert.assertTrue(repoConfig.isCommentsReporting());
+        Assert.assertNull(repoConfig.getSuccessLabel());
+        Assert.assertNull(repoConfig.getFailureLabel());
     }
 
     @Test
@@ -38,6 +41,9 @@ public class RepoConfigParserTest {
         Assert.assertEquals("Test", repoConfig.getEnv().get("MY_VAR"));
 
         Assert.assertEquals("14", repoConfig.getJavaVersion());
+        Assert.assertFalse(repoConfig.isCommentsReporting());
+        Assert.assertEquals("Pass-Label", repoConfig.getSuccessLabel());
+        Assert.assertEquals("Fail-Label", repoConfig.getFailureLabel());
 
     }
 }
