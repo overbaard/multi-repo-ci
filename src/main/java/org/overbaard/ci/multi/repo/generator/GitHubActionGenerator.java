@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -272,7 +271,7 @@ public class GitHubActionGenerator {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(getComponentBuildJobId(component.getName()), job);
-        if (context.isBuildStep()) {
+        if (context.isBuildJob()) {
             buildJobNames.add(getComponentBuildJobId(context.getJobName()));
         }
 
@@ -299,7 +298,7 @@ public class GitHubActionGenerator {
         ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
-        if (context.isBuildStep()) {
+        if (context.isBuildJob()) {
             buildJobNames.add(context.getJobName());
         }
     }
@@ -324,7 +323,7 @@ public class GitHubActionGenerator {
             job.put("needs", needs);
         }
 
-        if (context.isBuildStep()) {
+        if (context.isBuildJob()) {
             Map<String, String> outputs = new HashMap<>();
             outputs.put(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}");
             outputs.put(REV_PARSE_STEP_OUTPUT, "${{steps." + REV_PARSE_STEP_ID + ".outputs." + REV_PARSE_STEP_OUTPUT + "}}");
@@ -368,7 +367,7 @@ public class GitHubActionGenerator {
                             .build());
         }
 
-        if (context.isBuildStep()) {
+        if (context.isBuildJob()) {
             steps.add(
                     new GrabProjectVersionBuilder()
                             .setEnvVarName(getVersionEnvVarName(component.getName()))
@@ -387,7 +386,7 @@ public class GitHubActionGenerator {
             steps.add(new TmateDebugBuilder().build());
         }
 
-        if (context.isBuildStep()) {
+        if (context.isBuildJob()) {
             backupMavenArtifactsProducedByBuild(context, steps);
         }
 
@@ -544,7 +543,7 @@ public class GitHubActionGenerator {
             return Collections.emptyMap();
         }
 
-        protected boolean isBuildStep() {
+        protected boolean isBuildJob() {
             return true;
         }
     }
@@ -654,7 +653,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        protected boolean isBuildStep() {
+        protected boolean isBuildJob() {
             return buildStep;
         }
     }
