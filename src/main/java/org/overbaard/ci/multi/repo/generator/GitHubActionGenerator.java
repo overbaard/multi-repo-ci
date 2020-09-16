@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -42,6 +41,9 @@ import org.yaml.snakeyaml.Yaml;
 public class GitHubActionGenerator {
     public static final String GENERATE_WORKFLOW = "generate-workflow";
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
+    public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
+    public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
+    public static final String OB_ARTIFACTS_DIRECTORY_NAME = "artifacts";
 
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
@@ -294,13 +296,13 @@ public class GitHubActionGenerator {
         for (JobConfig jobConfig : jobConfigs) {
             boolean buildJob = config.getBuildJob().equals(jobConfig.getName());
             if (!component.isDebug() || config.getBuildJob().equals(jobConfig.getName())) {
-                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig, buildJob);
+                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, config.getBuildJob(), jobConfig);
             }
         }
     }
 
-    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildStep) {
-        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
+    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, String buildJobName, JobConfig jobConfig) {
+        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, buildJobName, jobConfig);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
         if (context.isBuildJob()) {
@@ -617,13 +619,13 @@ public class GitHubActionGenerator {
     }
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
+        private final String buildJobName;
         private final JobConfig jobConfig;
-        private final boolean buildJob;
 
-        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildJob) {
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, String buildJobName, JobConfig jobConfig) {
             super(repoConfig, component);
+            this.buildJobName = buildJobName;
             this.jobConfig = jobConfig;
-            this.buildJob = buildJob;
         }
 
         @Override
@@ -642,6 +644,20 @@ public class GitHubActionGenerator {
 
         @Override
         List<Map<String, Object>> createBuildJobs() {
+            List<Map<String, Object>> steps = new ArrayList<>();
+
+            if (isBuildJob()) {
+                // Ensure the artifacts directory is there
+                // It will be available to later jobs via the pushed git branch
+                Map<String, Object> artifactsDir = new LinkedHashMap<>();
+                artifactsDir.put("name", "Ensure artifacts dir is there");
+                artifactsDir.put("run",
+                        BashUtils.createDirectoryIfNotExist("${OB_ARTIFACTS_DIR}") +
+                                "touch ${OB_ARTIFACTS_DIR}/.gitkeep\n");
+                steps.add(artifactsDir);
+            }
+
+
             List<JobRunElementConfig> runElementConfigs = jobConfig.getRunElements();
             Map<String, Object> build = new HashMap<>();
             build.put("name", "Maven Build");
@@ -659,7 +675,8 @@ public class GitHubActionGenerator {
                 }
             }
             build.put("run", sb.toString());
-            return Collections.singletonList(build);
+            steps.add(build);
+            return steps;
         }
 
         @Override
@@ -667,6 +684,13 @@ public class GitHubActionGenerator {
             Map<String, String> env = new HashMap<>();
             env.putAll(super.createEnv());
             env.putAll(jobConfig.getJobEnv());
+            env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
+            if (!isBuildJob()) {
+                String var = String.format("${{ needs.%s.outputs.%s }}",
+                        buildJobName,
+                        getVersionEnvVarName(component.getName()));
+                env.put(OB_PROJECT_VERSION_VAR_NAME, var);
+            }
             return env;
         }
 
@@ -684,7 +708,7 @@ public class GitHubActionGenerator {
 
         @Override
         protected boolean isBuildJob() {
-            return buildJob;
+            return buildJobName.equals(jobConfig.getName());
         }
     }
 

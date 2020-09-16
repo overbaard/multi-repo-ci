@@ -306,5 +306,11 @@ Both `ts-smoke` and `ts-domain` wait for the `build` job to complete before
 they are run. But the nice thing is they can run in parallel, which speeds 
 testing up a lot.
 
-
+Each of the steps in a tailored build has access to the following env vars: 
+* `${$OB_PROJECT_VERSION}` - contains the captured version of the component being built
+* `${OB_ARTIFACTS_DIR}` - contains the location of a directory that can be used to share files between 
+jobs. Note that if files put in here are bigger than 90MB they will be split. So if you added the 200MB file
+`my-large-file.zip` you will end up with a directory called `my-large-file.zip`. That directory will contain 
+files created by splitting the original file, and a script called `reassemble.sh` which can be used to 
+reassemble the file.  
 
