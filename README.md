@@ -1,13 +1,21 @@
 # multi-repo-ci
-Tooling for GitHub Actions to run CI across several interdependent repositories. It currently assumes Java projects, and Maven as the build tool.
+Tooling for GitHub Actions to run CI across several interdependent repositories. 
+It currently assumes Java projects, and Maven as the build tool.
 
-On a large project, consisting of several components all from separate repositories, you might have several feature branches in several repositories to deliver the feature. The idea is to be able to test this feature as a whole from snapshots of each component involved.
+On a large project, consisting of several components all from separate repositories, 
+you might have several feature branches in several repositories to deliver the 
+feature. The idea is to be able to test this feature as a whole from snapshots 
+of each component involved.
 
-A testsuite run is initiated via a GitHub issue in repositories for which this has been set up. This in turn results in a generated workflow to run the testsuite.
+A testsuite run is initiated via a GitHub issue in repositories for which this 
+has been set up. This in turn results in a generated workflow to run the testsuite.
 
 
 ## User Guide
-To have CI run for your feature, you create a GitHub issue with YAML to define the components involved. The repository in which you create the issue, must have had this set up. Here is an example for the [WildFly](http://github.com/wildfly/wildfly) project:
+To have CI run for your feature, you create a GitHub issue with YAML to define 
+the components involved. The repository in which you create the issue, must have 
+had this set up. Here is an example for the 
+[WildFly](http://github.com/wildfly/wildfly) project:
 
 ```
 name: XNIO and Remoting
@@ -42,61 +50,107 @@ components:
       - name: wildfly-core
         property: version.org.wildfly.core
 ```
-This yaml defines a CI run for a job spanning four components. For each component we define:
+This yaml defines a CI run for a job spanning four components. For each component 
+we define:
 * The name of the component repository
 * The organisation, or the user account to build it from
 * The name of the branch containing the feature
 * An optional `java-version` to use as a parameter to the generated [setup-java action](https://github.com/actions/setup-java). 
-If not specified, whatever the administrator set up as the default will be used. This should only be specified for
-components that have a different java version than normal. 
+If not specified, whatever the administrator set up as the default will be used. 
+This should only be specified for components that have a different java version 
+than normal. 
 
-Although I have used the upstream organisation for each of the components, they could point to branches in your (or your team mates') repositories. In addition, each component may have dependencies on a SNAPSHOT from another build. In the above example, we can see that:
+Although I have used the upstream organisation for each of the components, they 
+could point to branches in your (or your team mates') repositories. In addition, 
+each component may have dependencies on a SNAPSHOT from another build. In the above 
+example, we can see that:
 * `jboss-remoting` depends on `xnio`
 * `wildfly-core` depends on `xnio` and `jboss-remoting`
 * `wildfly` depends on `wildfly-core`
 
-Each component build is run in order according to the dependencies, and for each component build the tooling will determine the version of the component built and share it so it can be used by later components.
+Each component build is run in order according to the dependencies, and for each 
+component build the tooling will determine the version of the component built and 
+share it so it can be used by later components.
 
-Each dependency has a `property` entry. This property is used to override the version for a given dependency. It assumes you are using properties to define versions in your POM files (and you really [should](https://books.sonatype.com/mvnref-book/reference/pom-relationships-sect-pom-best-practice.html)!).
+Each dependency has a `property` entry. This property is used to override the 
+version for a given dependency. It assumes you are using properties to define 
+versions in your POM files (and you really 
+[should](https://books.sonatype.com/mvnref-book/reference/pom-relationships-sect-pom-best-practice.html)!).
 
-Say that we ended up with the `3.8.4.Final-SHAPSHOT` as the version for the xnio built component. When running the jboss-remoting build the tooling will use the property name defined, so the maven command gets `-Dxnio.version=3.8.4.Final-SHAPSHOT` appended. This will override the value of that property set in jboss-remoting's [pom.xml](https://github.com/jboss-remoting/jboss-remoting/blob/master/pom.xml#L47).
+Say that we ended up with the `3.8.4.Final-SHAPSHOT` as the version for the xnio 
+built component. When running the jboss-remoting build the tooling will use the 
+property name defined, so the maven command gets 
+`-Dxnio.version=3.8.4.Final-SHAPSHOT` appended. This will override the value of 
+that property set in jboss-remoting's 
+[pom.xml](https://github.com/jboss-remoting/jboss-remoting/blob/master/pom.xml#L47).
 
-For the wildfly-core build the pom property has a different name, so there `-Dversion.org.wildfly.core=3.8.4.Final-SHAPSHOT` gets appended to the maven command to include the xnio SNAPSHOT. The same happpens for each dependency for each component.
+For the wildfly-core build the pom property has a different name, so there 
+`-Dversion.org.wildfly.core=3.8.4.Final-SHAPSHOT` gets appended to the maven 
+command to include the xnio SNAPSHOT. The same happpens for each dependency for 
+each component.
 
-In addition to the dependencies, you can tweak the maven build further by using the `mavenOpts` attribute. For xnio and jboss-remoting we have passed in `-DskipTests`. In those builds, that means that tests will not be run.
+In addition to the dependencies, you can tweak the maven build further by using 
+the `mavenOpts` attribute. For xnio and jboss-remoting we have passed 
+in `-DskipTests`. In those builds, that means that tests will not be run.
 
-Once GitHub Actions has picked up the issue, it will run a generator job (implemented by the code in this repository) which will generate a workflow YAML. This workflow YAML is pushed using the name `ci-<issue id>.yaml` to a branch called `branch-<issue id>` in the same repository as the issue was opened.
+Once GitHub Actions has picked up the issue, it will run a generator job 
+(implemented by the code in this repository) which will generate a workflow YAML. 
+This workflow YAML is pushed using the name `.github/workflows/ci-<issue id>.yaml` to a branch 
+called `multi-repo-ci-branch-<issue id>` in the same repository as the issue 
+was opened.
+
+This `multi-repo-ci-branch-<issue id>` branch is also used to store snapshots of the 
+artifacts created by each each build job. Those are pushed to this branch by the build job 
+and overlaid onto the maven repo by each consuming job. This branch is deleted after 
+running it so if you have any problems with your workflow, grab a copy of the 
+`ci-<issue id>.yaml` file while it is still running!
+
+If your repository has been configured by the admin issues will be labelled indicating CI 
+success/failure and a comment will mention the SHAs used in this build.
 
 TODO
 * [Label trigger issue to show if resulting run passed or failed](https://github.com/overbaard/multi-repo-ci/issues/1)
 * [Add comment on trigger issue with link to test run](https://github.com/overbaard/multi-repo-ci/issues/2)
 
 ### Viewing failures
-Once the workflow has completed there will be a downloadable artifact attached to the job which contains the following for the jobs that have failed:
+Once the workflow has completed there will be a downloadable artifact attached to 
+the job which contains the following for the jobs that have failed:
 * All the files with a .log suffix.
 * The surefire xml reports for the tests that had failures or errors.
 
-In addition when viewing the workflow, the build logs for each job are available via the GitHub Actions UI.
+In addition when viewing the workflow, the build logs for each job are available 
+via the GitHub Actions UI.
 
 ## Install Guide
-This section outlines how an organisation administrator would prepare a repository for use with this tooling.
+This section outlines how an organisation administrator would prepare a repository 
+for use with this tooling.
 
-You can either create a new repository in your organisation just to trigger this, or you can use your main repository if you don't mind adding the small number of files we discuss below.
+You can either create a new repository in your organisation just to trigger 
+this, or you can use your main repository if you don't mind adding the small 
+number of files we discuss below.
 
-Also, to save on GitHub Actions minutes in the GitHub organisation, you may choose to set this up in your personal repository.
+Also, to save on GitHub Actions minutes in the GitHub organisation, you may 
+choose to set this up in your personal repository.
 
 
 ### PAT/Secret
-The first thing you need is to create a [GitHub Personal Access Token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line). I am using the following permissions for my token (it is currently a bit of a guess, and I might have some unneeded permissions there):
+The first thing you need is to create a 
+[GitHub Personal Access Token](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line). 
+I am using the following permissions for my token (it is currently a bit of a 
+guess, and I might have some unneeded permissions there):
 * repo
 * admin:repo_hook
 * user
 * workflow
 
-Then copy the PAT and store it in a [GitHub Secret](https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets) in the organisation where you want the tool to run. You can also do this for your user account. The name of this secret must be `OB_MULTI_CI_PAT`.
+Then copy the PAT and store it in a 
+[GitHub Secret](https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets) 
+in the organisation where you want the tool to run. You can also do this for your 
+user account. The name of this secret must be `OB_MULTI_CI_PAT`.
 
 ### Enable the CI job
-Copy [ci.yml](./ci.yml) to `.github/workflows/ci.yml` (you may change the name of the file as you like) in your repository.
+Copy [ci.yml](./ci.yml) to `.github/workflows/ci.yml` (you may change the name of 
+the file as you like) in your repository.
 
 ### Configuring the repository
 Create a `.repo-config/config.yml` file. An example:
@@ -105,16 +159,19 @@ env:
   MAVEN_OPTS: -Xmx1g -Xmx1g
 java-version: 11
 ```
-Here we have set the maven opts environment variable to have the right size for our build. In addition we have set
-the java-version to use for the generated [setup-java action](https://github.com/actions/setup-java). This can be 
-overridden by the user in the issue YAML. Also, in the next section we can set up the default java version to use when 
-tailoring component builds.
+Here we have set the maven opts environment variable to have the right size for 
+our build. In addition we have set the java-version to use for the 
+generated [setup-java action](https://github.com/actions/setup-java). This can be 
+overridden by the user in the issue YAML. Also, in the next section we can set 
+up the default java version to use when tailoring component builds.
 
 #### Status reporting
-By default once the resulting workflow has terminated, a comment will be left on the issue indicating success 
-or failure. If you want to turn this off, or add the ability to configure labels to be added to the issue 
-indicating success or failure, add a `issue-reporting` section to the `.repo-config/config.yml`. The following
-turns off comments, and adds the label `Passed` on success, and the `Failure` label on failure.
+By default once the resulting workflow has terminated, a comment will be left on 
+the issue indicating success or failure. If you want to turn this off, or 
+add the ability to configure labels to be added to the issue 
+indicating success or failure, add a `issue-reporting` section to the 
+`.repo-config/config.yml`. The following turns off comments, and adds the label 
+`Passed` on success, and the `Failure` label on failure.
 
 ```
 issue-reporting:
@@ -127,18 +184,32 @@ issue-reporting:
 
 
 ### Tailoring build
-By default with what we have seen so far, the tool will generate a workflow file which simply does the following steps for each component:
+By default with what we have seen so far, the tool will generate a workflow file 
+which simply does the following steps for each component:
 * Check out the specified repo + branch
 * Set up the Maven caching
+* Get the branch containing the workflow file and snapshots and overlay those onto the Maven repo 
 * Set up Java
-* Determine the version and upload an artifact containing that version
-* Download the version artifacts for each dependency and set those in environment variables
-* Run the Maven build. This is essentially a `mvn -B install` with adjustments made for the properties for the versions of our dependencies and what we specified in `mavenOpts`
-* Grabbing the logs and surefire reports (but only if the job failed) and add to the shared log artifact
+* Determine the version and store in a job output variable
+* Inspect the other jobs' output variables to get the version of each dependency
+* Run the Maven build. This is essentially a `mvn -B install` with adjustments made 
+for the properties for the versions of our dependencies, as well as what we specified in 
+`mavenOpts`
+* If it is defined as the `build-job`, push the snapshots built by this build to the branch driving the build
+* Grabbing the logs and surefire reports (but only if the job failed) and add to 
+the shared log artifact
 
-If a component you know you are going to build a lot has a large testsuite, you can benefit from splitting that up and running it in parallel. You do this by adding a `.repo-config/component-jobs/<component-name>.yaml` to your repository. When generating the workflow YAML, when the tooling encounters a component in the issue YAML, it looks for a YAML file with the same name in the `.repo-config/component-jobs/` folder. If that file is found, it customises the build for that components.
+If a component you know you are going to build a lot has a large testsuite, 
+you can benefit from splitting that up and running it in parallel. You do this 
+by adding a `.repo-config/component-jobs/<component-name>.yaml` to your repository. 
+When generating the workflow YAML, when the tooling encounters a component in the
+ issue YAML, it looks for a YAML file with the same name in the 
+ `.repo-config/component-jobs/` folder. If that file is found, it customises 
+ the build for that components.
 
-As an example here is a snippet of the `.repo-config/component-jobs/wildfly-core.yaml` that I use when building `wildfly-core` in the above example:
+As an example here is a snippet of the 
+`.repo-config/component-jobs/wildfly-core.yaml` that I use when building 
+`wildfly-core` in the above example:
 
 ```
 env:
@@ -146,25 +217,30 @@ env:
   MAVEN_SMOKE_TEST_PARAMS: -DfailIfNoTests=false -Dipv6 -Djboss.test.transformers.eap -Dci-cleanup=true -fae
   MAVEN_TEST_PARAMS: -DfailIfNoTests=false -Dipv6 -Djboss.test.transformers.eap -Dci-cleanup=true -fae -DallTests
 ```
-As mentioned in the comments an env entry in GitHub Actions does not get substituted into other env entries.
+As mentioned in the comments an env entry in GitHub Actions does not get 
+substituted into other env entries.
 ```
 java-version: 8
 ```
-Here we say to use `8` as the version of java for all jobs in this component (note we can still override this again 
-for each job). 
+Here we say to use `8` as the version of java for all jobs in this component 
+(note we can still override this again for each job). 
 ```
 # the build job is the job that builds the component and determines its version. Other components depend on this job.
 build-job: build
 ```
-Jobs for components depending on this component will depend on the jobs indicated in the `build-step` entry. This way
-in our example, the `wildfly` component build only waits for the `build` job of `wildfly-core`, and **not** the full wildfly-core testsuite.
-Also, this job is what determines the version of `wildfly-core`.
+Jobs for components depending on this component will depend on the jobs indicated 
+in the `build-step` entry. This way in our example, the `wildfly` component build 
+only waits for the `build` job of `wildfly-core`, and **not** the full 
+wildfly-core testsuite. Also, this job is what determines the version 
+of `wildfly-core`.
 ```
 jobs:
   # Build the server skipping tests for speed since other jobs depend on this. The maven repo is cached
   build:
 ```
-This and all other build steps get prefixed with the component name in the generated workflow YAML. So this will show up as `wildfly-core-build` in the final generated workflow YAML.
+This and all other build steps get prefixed with the component name in the 
+generated workflow YAML. So this will show up as `wildfly-core-build` in the final 
+generated workflow YAML.
 ```
     env:
       MAVEN_BUILD_EXTRA_PARAMS: -DlegacyBuild -DlegacyRelease -DskipTests
@@ -176,9 +252,15 @@ This and all other build steps get prefixed with the component name in the gener
 ```
 A few things here.
 
-Since the tooling 'massages' the `mvn` commands to adjust the properties to include snapshots of other components, any `mvn` command must happen in a `mvn` entry. Other shell commands happen in a `shell` entry. The tool will give an error if you try to use mvn from a `shell` entry.
+Since the tooling 'massages' the `mvn` commands to adjust the properties to include 
+snapshots of other components, any `mvn` command must happen in a `mvn` entry. 
+Other shell commands happen in a `shell` entry. The tool will give an error if 
+you try to use mvn from a `shell` entry.
 
-Next the mvn command ends up having `-DskipTests` passed in (from the `MAVEN_BUILD_EXTRA_PARAMS` env entry), which in this component's build means it will skip all unit tests and integration tests. This results in a build that is as fast as possible.
+Next the mvn command ends up having `-DskipTests` passed in 
+(from the `MAVEN_BUILD_EXTRA_PARAMS` env entry), which in this component's build 
+means it will skip all unit tests and integration tests. This results in a build t
+hat is as fast as possible.
 ```
   #####################################
   # Parallel tests - depend on wildfly-core-build
@@ -196,11 +278,13 @@ Next the mvn command ends up having `-DskipTests` passed in (from the `MAVEN_BUI
     # - scripts
     needs: [build]
 ```
-We depend on the above `build` job, so that will have completed before this job runs.
+We depend on the above `build` job, so that will have completed before this job 
+runs.
 ```
     java-version: 11
 ```
-We can override the java version that we set up for the whole component for this particular job.
+We can override the java version that we set up for the whole component for this 
+particular job.
 ```
     run:
       - mvn: package ${MAVEN_SMOKE_TEST_PARAMS}
@@ -216,7 +300,11 @@ Note that we use `package` here to not pollute the cached maven repository.
     run:
       - mvn: package ${MAVEN_TEST_PARAMS} -pl testsuite/domain
 ```
-This job runs a sub-section of the testsuite in the testsuite/domain folder. We would do the same for other testsuite modules we want to run in parallel. Both `ts-smoke` and `ts-domain` wait for the `build` job to complete before they are run. But the nice thing is they can run in parallel, which speeds testing up a lot.
+This job runs a sub-section of the testsuite in the testsuite/domain folder. 
+We would do the same for other testsuite modules we want to run in parallel. 
+Both `ts-smoke` and `ts-domain` wait for the `build` job to complete before 
+they are run. But the nice thing is they can run in parallel, which speeds 
+testing up a lot.
 
 
 
