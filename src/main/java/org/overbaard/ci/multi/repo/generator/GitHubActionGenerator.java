@@ -272,6 +272,10 @@ public class GitHubActionGenerator {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(getComponentBuildJobId(component.getName()), job);
+        if (context.isBuildStep()) {
+            buildJobNames.add(getComponentBuildJobId(context.getJobName()));
+        }
+
     }
 
     private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
@@ -295,6 +299,9 @@ public class GitHubActionGenerator {
         ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
+        if (context.isBuildStep()) {
+            buildJobNames.add(context.getJobName());
+        }
     }
 
     private Map<String, Object> setupJob(ComponentJobContext context) {
@@ -322,8 +329,6 @@ public class GitHubActionGenerator {
             outputs.put(myVersionEnvVarName, "${{steps.grab-version.outputs." + myVersionEnvVarName + "}}");
             outputs.put(REV_PARSE_STEP_OUTPUT, "${{steps." + REV_PARSE_STEP_ID + ".outputs." + REV_PARSE_STEP_OUTPUT + "}}");
             job.put("outputs", outputs);
-
-            buildJobNames.add(context.getJobName());
         }
 
         List<Object> steps = new ArrayList<>();
