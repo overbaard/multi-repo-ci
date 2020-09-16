@@ -10,12 +10,16 @@ import java.util.Set;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class IssueStatusReportJobBuilder {
+
+    private static final String NODE_ENV = "process.env.";
+
     private final int issueNumber;
     private Set<String> needs;
     private String successLabel;
     private String successMessage;
     private String failureLabel;
     private String failureMessage;
+    private Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
 
     public IssueStatusReportJobBuilder(int issueNumber) {
         this.issueNumber = issueNumber;
@@ -23,6 +27,11 @@ public class IssueStatusReportJobBuilder {
 
     public IssueStatusReportJobBuilder setNeeds(Set<String> needs) {
         this.needs = needs;
+        return this;
+    }
+
+    public IssueStatusReportJobBuilder setJobNamesAndVersionVariables(Map<String, String> jobNamesAndVersionVariables) {
+        this.jobNamesAndVersionVariables.putAll(jobNamesAndVersionVariables);
         return this;
     }
 
@@ -77,7 +86,22 @@ public class IssueStatusReportJobBuilder {
         if (removeLabel != null) {
             script.setRemoveIssueLabels(removeLabel);
         }
-        // TODO remove stuff
+        if (issueComment != null) {
+            StringBuilder formattedComment = new StringBuilder();
+            // We need to format this for javascript, which is a bit odd
+            formattedComment.append("'" + issueComment + "\\n\\n'\n");
+            if (jobNamesAndVersionVariables.size() > 0) {
+                formattedComment.append("  + 'These are the job names and their respective SHA-1 hashes:\\n\\n'\n");
+                for (Map.Entry<String, String> entry : jobNamesAndVersionVariables.entrySet()) {
+                    String component = entry.getKey();
+                    String env = NODE_ENV + entry.getValue();
+                    formattedComment.append("  + '" + component + ": ' + " + env + " + '\\n'\n");
+                }
+            }
+            script.setIssueComment(formattedComment.toString());
+        }
+
         return script.build();
     }
+
 }

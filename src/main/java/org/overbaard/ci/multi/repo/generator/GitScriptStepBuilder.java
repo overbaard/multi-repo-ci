@@ -22,6 +22,7 @@ public class GitScriptStepBuilder {
 
     Set<String> addIssueLabels = new HashSet<>();
     Set<String> removeIssueLabels = new HashSet<>();
+    String issueComment;
 
     public GitScriptStepBuilder(int issueId) {
         this.issueId = issueId;
@@ -39,6 +40,11 @@ public class GitScriptStepBuilder {
 
     public GitScriptStepBuilder setRemoveIssueLabels(String... labels) {
         this.removeIssueLabels.addAll(Arrays.asList(labels).stream().filter(l -> l != null).collect(Collectors.toList()));
+        return this;
+    }
+
+    public GitScriptStepBuilder setIssueComment(String issueComment) {
+        this.issueComment = issueComment;
         return this;
     }
 
@@ -61,16 +67,16 @@ public class GitScriptStepBuilder {
         step.put("with", with);
         with.put("github-token", "${{ secrets.OB_MULTI_CI_PAT }}");
 
-
-
         StringBuilder script = new StringBuilder();
         addIssueLabels(script);
         removeIssueLabels(script);
+        addIssueComment(script);
 
 
         with.put("script", script.toString());
         return step;
     }
+
 
     private void addIssueLabels(StringBuilder script) {
         if (addIssueLabels.size() > 0) {
@@ -124,4 +130,18 @@ public class GitScriptStepBuilder {
         script.append("  }\n");
         script.append("}\n");
     }
+
+    private void addIssueComment(StringBuilder script) {
+        if (issueComment == null) {
+            return;
+        }
+
+        script.append("await github.issues.createComment({\n");
+        script.append("  issue_number: " + issueId + ",\n");
+        script.append("  owner: context.repo.owner,\n");
+        script.append("  repo: context.repo.repo,\n");
+        script.append("  body: " + issueComment + ",\n");
+        script.append("})");
+    }
+
 }
