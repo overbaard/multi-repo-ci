@@ -14,6 +14,7 @@ public class IssueStatusReportJobBuilder {
 
     private static final String NODE_ENV_PREFIX = "process.env.";
 
+    private final String jobName;
     private final int issueNumber;
     private Set<String> needs;
     private String successLabel;
@@ -22,7 +23,8 @@ public class IssueStatusReportJobBuilder {
     private String failureMessage;
     private Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
 
-    public IssueStatusReportJobBuilder(int issueNumber) {
+    public IssueStatusReportJobBuilder(String jobName, int issueNumber) {
+        this.jobName = jobName;
         this.issueNumber = issueNumber;
     }
 

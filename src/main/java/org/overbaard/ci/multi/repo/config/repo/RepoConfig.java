@@ -15,17 +15,20 @@ public class RepoConfig {
     private final boolean commentsReporting;
     private final String successLabel;
     private final String failureLabel;
+    private final Map<String, Object> endJob;
 
-    RepoConfig(Map<String, String> env, String javaVersion, boolean commentsReporting, String successLabel, String failureLabel) {
+    RepoConfig(Map<String, String> env, String javaVersion, boolean commentsReporting,
+               String successLabel, String failureLabel, Map<String, Object> endJob) {
         this.env = env;
         this.javaVersion = javaVersion;
         this.commentsReporting = commentsReporting;
         this.successLabel = successLabel;
         this.failureLabel = failureLabel;
+        this.endJob = endJob;
     }
 
     RepoConfig() {
-        this(Collections.emptyMap(), null, DEFAULT_COMMENTS_REPORTING, null, null);
+        this(Collections.emptyMap(), null, DEFAULT_COMMENTS_REPORTING, null, null, null);
     }
 
     public Map<String, String> getEnv() {
@@ -46,5 +49,9 @@ public class RepoConfig {
 
     public String getFailureLabel() {
         return failureLabel;
+    }
+
+    public Map<String, Object> getEndJob() {
+        return endJob;
     }
 }

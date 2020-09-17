@@ -58,7 +58,8 @@ public class GitHubActionGenerator {
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
     static final Path REPO_CONFIG_FILE = Paths.get(".repo-config/config.yml");
     static final Path COMPONENT_JOBS_DIR = Paths.get(".repo-config/component-jobs");
-    static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/repo-backups");
+    static final String REPO_BACKUPS = "repo-backups";
+    static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/" + REPO_BACKUPS);
     final static Path MAVEN_REPO;
     static {
         if (System.getenv("HOME") == null) {
@@ -73,7 +74,7 @@ public class GitHubActionGenerator {
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
     final Map<String, Object> jobs = new LinkedHashMap<>();
-    private final Set<String> buildJobNames = new LinkedHashSet<>();
+    private final Map<String, String> buildJobNamesByComponent = new LinkedHashMap<>();
     private final Path workflowFile;
     private final Path yamlConfig;
     private final String branchName;
@@ -192,6 +193,11 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
+        if (repoConfig.getEndJob() != null) {
+            setupEndJob(repoConfig, triggerConfig);
+        }
+        setupReportingJob(repoConfig, triggerConfig);
+
         setupCleanupJob(triggerConfig);
 
         DumperOptions options = new DumperOptions();
@@ -251,7 +257,6 @@ public class GitHubActionGenerator {
                 setupComponentBuildJobsFromFile(jobs, repoConfig, component, componentJobsFile);
             }
         }
-        jobs.put("job-status-report", setupReportingJob(jobs.keySet(), repoConfig));
         workflow.put("jobs", jobs);
     }
 
@@ -279,7 +284,7 @@ public class GitHubActionGenerator {
         Map<String, Object> job = setupJob(context);
         componentJobs.put(getComponentBuildJobId(component.getName()), job);
         if (context.isBuildJob()) {
-            buildJobNames.add(getComponentBuildJobId(context.getJobName()));
+            buildJobNamesByComponent.put(component.getName(), getComponentBuildJobId(context.getJobName()));
         }
 
     }
@@ -306,14 +311,14 @@ public class GitHubActionGenerator {
         Map<String, Object> job = setupJob(context);
         componentJobs.put(jobConfig.getName(), job);
         if (context.isBuildJob()) {
-            buildJobNames.add(context.getJobName());
+            buildJobNamesByComponent.put(component.getName(), context.getJobName());
         }
     }
 
     private Map<String, Object> setupJob(ComponentJobContext context) {
         Component component = context.getComponent();
 
-        final String myVersionEnvVarName = getVersionEnvVarName(component.getName());
+        final String myVersionEnvVarName = getInternalVersionEnvVarName(component.getName());
 
         String jobName = context.getJobName();
 
@@ -379,7 +384,7 @@ public class GitHubActionGenerator {
         if (context.isBuildJob()) {
             steps.add(
                     new GrabProjectVersionBuilder()
-                            .setEnvVarName(getVersionEnvVarName(component.getName()))
+                            .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
                             .build());
             steps.add(
                 new GitRevParseIntoOutputVariableBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
@@ -454,13 +459,13 @@ public class GitHubActionGenerator {
                         .build());
     }
 
-    private Map<String, Object> setupReportingJob(Set<String> allJobNames, RepoConfig repoConfig) {
+    private void setupReportingJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
 
         // Let the Job builder do the proper formatting of the message
         // It currently uses the github-script action which uses JavaScript
         // so it is quite 'specialised'
         Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
-        for (String buildJobName : buildJobNames) {
+        for (String buildJobName : buildJobNamesByComponent.values()) {
             String hash = String.format("needs.%s.outputs.%s",
                     buildJobName,
                     REV_PARSE_STEP_OUTPUT);
@@ -468,21 +473,67 @@ public class GitHubActionGenerator {
         }
 
         if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
-            IssueStatusReportJobBuilder jobBuilder = new IssueStatusReportJobBuilder(issueNumber);
-            jobBuilder.setNeeds(allJobNames);
+            String jobName = "status-" + formatTriggerName(triggerConfig);
+            IssueStatusReportJobBuilder jobBuilder =
+                    new IssueStatusReportJobBuilder(jobName, issueNumber);
+            jobBuilder.setNeeds(jobs.keySet());
             jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
             jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
             jobBuilder.setSuccessMessage("The job passed!");
             jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
             jobBuilder.setFailureMessage("The job failed");
-            return jobBuilder.build();
+            jobs.put(jobName, jobBuilder.build());
         }
-        return Collections.emptyMap();
+    }
+
+    private void setupEndJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
+        Map<String, Object> job = repoConfig.getEndJob();
+
+        // Copy the job so that the ordering is better
+        Map<String, Object> jobCopy = new LinkedHashMap<>();
+        String jobName = "end-job-" + formatTriggerName(triggerConfig);
+        jobCopy.put("name", jobName);
+        jobCopy.put("runs-on", "ubuntu-latest");
+        jobCopy.put("needs", new ArrayList<>(jobs.keySet()));
+
+        // RepoConfigParser has ensured there is always an env entry
+        Map<String, Object> env = new HashMap<>((Map<String, Object>)job.get("env"));
+        jobCopy.put("env", env);
+        for (Map.Entry<String, String> entry : buildJobNamesByComponent.entrySet()) {
+            String componentName = entry.getKey();
+            String buildJobName = entry.getValue();
+            env.put(getEndUserVersionEnvVarName(componentName), formatOutputVersionVariableName(buildJobName, componentName));
+        }
+        env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
+
+        List<Object> steps = new ArrayList();
+        // Add boiler plate steps
+        steps.add(new CheckoutBuilder()
+                .setBranch(branchName)
+                .build());
+        steps.add(
+                new SetupJavaBuilder()
+                        .setVersion(
+                                repoConfig.getJavaVersion() != null ? repoConfig.getJavaVersion() : DEFAULT_JAVA_VERSION)
+                        .build());
+        steps.add(
+                new GitCommandBuilder()
+                        .setRebase()
+                        .build());
+
+        steps.add(new Ipv6LocalhostBuilder().build());
+
+        // RepoConfigParser has validated the job format already
+        List<Object> jobSteps = (List<Object>)job.get("steps");
+        steps.addAll(jobSteps);
+        jobCopy.put("steps", steps);
+
+        jobs.put(jobName, jobCopy);
     }
 
     private void setupCleanupJob(TriggerConfig triggerConfig) {
         Map<String, Object> job = new LinkedHashMap<>();
-        job.put("name", "cleanup-" + triggerConfig.getName().replace(' ', '-'));
+        job.put("name", "cleanup-" + formatTriggerName(triggerConfig));
         job.put("runs-on", "ubuntu-latest");
         job.put("needs", new ArrayList<>(jobs.keySet()));
         job.put("if", IfCondition.ALWAYS.getValue());
@@ -507,8 +558,22 @@ public class GitHubActionGenerator {
         return name + "-build";
     }
 
-    private String getVersionEnvVarName(String name) {
+    private String getInternalVersionEnvVarName(String name) {
         return "version_" + name.replace("-", "_");
+    }
+
+    private String getEndUserVersionEnvVarName(String name) {
+        return getInternalVersionEnvVarName(name).toUpperCase();
+    }
+
+    private String formatTriggerName(TriggerConfig triggerConfig) {
+        return triggerConfig.getName().replace(' ', '-').toLowerCase();
+    }
+
+    private String formatOutputVersionVariableName(String buildJobName, String componentName) {
+        return String.format("needs.%s.outputs.%s",
+                buildJobName,
+                getInternalVersionEnvVarName(componentName));
     }
 
     private abstract class ComponentJobContext {
@@ -686,9 +751,7 @@ public class GitHubActionGenerator {
             env.putAll(jobConfig.getJobEnv());
             env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
             if (!isBuildJob()) {
-                String var = String.format("${{ needs.%s.outputs.%s }}",
-                        buildJobName,
-                        getVersionEnvVarName(component.getName()));
+                String var = "${{ " + formatOutputVersionVariableName(buildJobName, component.getName() + " }}");
                 env.put(OB_PROJECT_VERSION_VAR_NAME, var);
             }
             return env;
@@ -720,10 +783,7 @@ public class GitHubActionGenerator {
         public ComponentDependencyContext(Dependency dependency, String buildJobName) {
             this.dependency = dependency;
             this.buildJobName = buildJobName;
-            this.versionVarName =
-                    String.format("needs.%s.outputs.%s",
-                            buildJobName,
-                            getVersionEnvVarName(dependency.getName()));
+            this.versionVarName = formatOutputVersionVariableName(buildJobName, dependency.getName());
         }
     }
 }

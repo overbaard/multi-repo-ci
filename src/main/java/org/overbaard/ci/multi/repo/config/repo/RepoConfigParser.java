@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.overbaard.ci.multi.repo.config.BaseParser;
@@ -42,6 +44,7 @@ public class RepoConfigParser extends BaseParser {
         Object envInput = input.remove("env");
         Object javaVersionInput = input.remove("java-version");
         Object issueReportingInput = input.remove("issue-reporting");
+        Object endJobInput = input.remove("end-job");
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
@@ -101,7 +104,38 @@ public class RepoConfigParser extends BaseParser {
             }
         }
 
-        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel);
+        Map<String, Object> endJob = parseEndJob(endJobInput);
+
+        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel, endJob);
     }
 
+    private Map<String, Object> parseEndJob(Object input) {
+        if (input == null) {
+            return null;
+        }
+        if (!(input instanceof Map)) {
+            throw new IllegalStateException("end-job must be an object");
+        }
+        Map<String, Object> endJob = (Map<String, Object>) input;
+        if (endJob.get("name") != null) {
+            throw new IllegalStateException("end-job should not have 'name'");
+        }
+        if (endJob.get("runs-on") != null) {
+            throw new IllegalStateException("end-job should not have 'runs-on'");
+        }
+        if (endJob.get("needs") != null) {
+            throw new IllegalStateException("end-job should not have 'needs'");
+        }
+        if (endJob.get("env") == null) {
+            endJob.put("env", new LinkedHashMap<>());
+        }
+        if (endJob.get("steps") == null) {
+            throw new IllegalStateException("end-job should have a 'steps'");
+        }
+        Object steps = endJob.get("steps");
+        if (!(steps instanceof List)) {
+            throw new IllegalStateException("end-job 'steps' should be a list");
+        }
+        return endJob;
+    }
 }
