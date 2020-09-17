@@ -506,6 +506,12 @@ public class GitHubActionGenerator {
         }
         env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
 
+        for (String key : job.keySet()) {
+            if (!key.equals("env") && !key.equals("steps")) {
+                jobCopy.put(key, job.get(key));
+            }
+        }
+
         List<Object> steps = new ArrayList();
         // Add boiler plate steps
         steps.add(new CheckoutBuilder()
@@ -520,6 +526,10 @@ public class GitHubActionGenerator {
                 new GitCommandBuilder()
                         .setRebase()
                         .build());
+        steps.add(
+                Collections.singletonMap(
+                        "run",
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
 
         steps.add(new Ipv6LocalhostBuilder().build());
 
@@ -717,8 +727,8 @@ public class GitHubActionGenerator {
                 Map<String, Object> artifactsDir = new LinkedHashMap<>();
                 artifactsDir.put("name", "Ensure artifacts dir is there");
                 artifactsDir.put("run",
-                        BashUtils.createDirectoryIfNotExist("${OB_ARTIFACTS_DIR}") +
-                                "touch ${OB_ARTIFACTS_DIR}/.gitkeep\n");
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
+                                "touch ${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}/.gitkeep\n");
                 steps.add(artifactsDir);
             }
 
