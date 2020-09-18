@@ -1,101 +1,39 @@
-package org.overbaard.ci.multi.repo.maven.backup;
+package org.overbaard.ci.multi.repo.directory.utils;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class CopyDirectoryVisitor extends SimpleFileVisitor<Path> {
+public class SplitFileUtil {
+    private static final String SPLIT_FILE_DIRECTORY_SUFFIX = ".split.file.dir";
 
     // GitHub's max file size is 100Mb. Set it to 90 just to have some leeway
     private static final long MAX_SIZE_BYTES = 90 * 1024 * 1024;
 
-    private static final String SPLIT_FILE_DIRECTORY_SUFFIX = ".split.file.dir";
-
-    private final LargeFileAction largeFileAction;
-    private final Path sourceDir;
-    private final Path targetDir;
-
-    public CopyDirectoryVisitor(Path sourceDir, Path targetDir) {
-        this(LargeFileAction.NONE, sourceDir, targetDir);
-    }
-
-    public CopyDirectoryVisitor(LargeFileAction largeFileAction, Path sourceDir, Path targetDir) {
-        this.largeFileAction = largeFileAction;
-        this.sourceDir = sourceDir.toAbsolutePath();
-        this.targetDir = targetDir.toAbsolutePath();
-    }
-
-    @Override
-    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-        Path relative = sourceDir.relativize(dir);
-        Path target = targetDir.resolve(relative);
-        Files.createDirectories(target);
-        return FileVisitResult.CONTINUE;
-    }
-
-    @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-        Path relative = sourceDir.relativize(file);
-        Path target = targetDir.resolve(relative);
-
-        System.out.println("Copying " + file + " to " + target);
-        if (Files.exists(target)) {
-            Files.delete(target);
+    static boolean isSplitFilesDirectory(Path dir) {
+        if (Files.isDirectory(dir) && dir.getFileName().toString().endsWith(SplitFileUtil.SPLIT_FILE_DIRECTORY_SUFFIX)) {
+            return true;
         }
-        Files.copy(file, target);
-
-        return FileVisitResult.CONTINUE;
+        return false;
     }
 
-    @Override
-    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-        if (largeFileAction != LargeFileAction.NONE) {
-            // Do any handling of files in the target directory
-            Path relative = sourceDir.relativize(dir);
-            Path target = targetDir.resolve(relative);
-
-            if (largeFileAction == LargeFileAction.MERGE) {
-                if (dir.getFileName().toString().endsWith(SPLIT_FILE_DIRECTORY_SUFFIX)) {
-                    mergeFiles(target);
-                    return FileVisitResult.SKIP_SUBTREE;
-                }
-            }
-
-            try (Stream<Path> stream = Files.list(target)) {
-                List<Path> list = stream.collect(Collectors.toList());
-                for (Path f : list) {
-                    if (largeFileAction == LargeFileAction.SPLIT) {
-                        splitFile(f);
-                    }
-                }
-            }
-        }
-        return super.postVisitDirectory(dir, exc);
-    }
-
-    private void mergeFiles(Path splitDir) throws IOException {
+    void mergeFiles(Path splitDir) throws IOException {
         String baseFileName = getFileNameFromSplitDirName(splitDir);
         Path mergedTargetFile = splitDir.getParent().resolve(baseFileName);
         System.out.println("Merging split dir " + splitDir + " to " + mergedTargetFile);
 
         try (RandomAccessFile toFile = new RandomAccessFile(mergedTargetFile.toFile(), "rw");
-                FileChannel toChannel = toFile.getChannel()) {
+             FileChannel toChannel = toFile.getChannel()) {
 
             int position = 0;
 
@@ -106,7 +44,7 @@ public class CopyDirectoryVisitor extends SimpleFileVisitor<Path> {
                 }
 
                 try (RandomAccessFile part = new RandomAccessFile(path.toFile(), "r");
-                        FileChannel fromChannel = part.getChannel()) {
+                     FileChannel fromChannel = part.getChannel()) {
                     long size = Files.size(path);
                     toChannel.transferFrom(fromChannel, position, size);
                     Files.delete(path);
@@ -114,11 +52,11 @@ public class CopyDirectoryVisitor extends SimpleFileVisitor<Path> {
                 }
             }
 
-            Files.walkFileTree(splitDir, new DeleteFilesVisitor());
+            Files.walkFileTree(splitDir, new CopyDirectoryVisitor.DeleteFilesVisitor());
         }
     }
 
-    private void splitFile(Path file) throws IOException {
+    void splitFile(Path file) throws IOException {
         long sourceSize = Files.size(file);
         long bytesPerSplit = MAX_SIZE_BYTES;
         if (sourceSize > bytesPerSplit) {
@@ -127,13 +65,13 @@ public class CopyDirectoryVisitor extends SimpleFileVisitor<Path> {
 
             Path splitDir = file.getParent().resolve(file.getFileName().toString() + SPLIT_FILE_DIRECTORY_SUFFIX);
             if (Files.exists(splitDir)) {
-                Files.walkFileTree(splitDir.toAbsolutePath(), new DeleteFilesVisitor());
+                Files.walkFileTree(splitDir.toAbsolutePath(), new CopyDirectoryVisitor.DeleteFilesVisitor());
             }
             Files.createDirectories(splitDir);
             createReassembleScript(splitDir);
 
             try (RandomAccessFile sourceFile = new RandomAccessFile(file.toFile(), "r");
-                    FileChannel sourceChannel = sourceFile.getChannel()) {
+                 FileChannel sourceChannel = sourceFile.getChannel()) {
 
 
                 int position = 0;
@@ -201,24 +139,4 @@ public class CopyDirectoryVisitor extends SimpleFileVisitor<Path> {
         return baseFileName;
     }
 
-    private static class DeleteFilesVisitor extends SimpleFileVisitor<Path> {
-        @Override
-        public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-            Files.delete(file);
-            return FileVisitResult.CONTINUE;
-        }
-
-        @Override
-        public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-            Files.delete(dir);
-            return FileVisitResult.CONTINUE;
-        }
-    }
-
-
-    enum LargeFileAction {
-        NONE,
-        SPLIT,
-        MERGE
-    }
 }

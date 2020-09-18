@@ -1,6 +1,4 @@
-package org.overbaard.ci.multi.repo.maven.backup;
-
-import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.SPLIT;
+package org.overbaard.ci.multi.repo.directory.utils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -48,7 +46,7 @@ public class BackupMavenArtifacts {
 
     public static void backup(String[] args) throws Exception {
         if (args.length != 3) {
-            throw new IllegalStateException("Need the following three args: <root pom path> <maven repo root> <backupLocation>");
+            throw new IllegalStateException("Need the following args: <root pom path> <maven repo root> <backupLocation>");
         }
 
         Path rootPom = Paths.get(args[0]).toAbsolutePath();
@@ -143,6 +141,6 @@ public class BackupMavenArtifacts {
         }
 
         Files.createDirectories(targetDir);
-        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(SPLIT, sourceDir, targetDir));
+        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(LargeFileAction.SPLIT, sourceDir, targetDir));
     }
 }

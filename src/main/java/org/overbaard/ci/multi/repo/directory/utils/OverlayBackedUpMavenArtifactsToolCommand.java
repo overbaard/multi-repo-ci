@@ -1,4 +1,4 @@
-package org.overbaard.ci.multi.repo.maven.backup;
+package org.overbaard.ci.multi.repo.directory.utils;
 
 import org.overbaard.ci.multi.repo.ToolCommand;
 

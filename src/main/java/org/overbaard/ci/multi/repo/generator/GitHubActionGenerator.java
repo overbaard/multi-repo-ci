@@ -12,10 +12,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.Usage;
@@ -30,8 +28,8 @@ import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifacts;
+import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
+import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
