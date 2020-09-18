@@ -503,7 +503,7 @@ public class GitHubActionGenerator {
         for (Map.Entry<String, String> entry : buildJobNamesByComponent.entrySet()) {
             String componentName = entry.getKey();
             String buildJobName = entry.getValue();
-            env.put(getEndUserVersionEnvVarName(componentName), formatOutputVersionVariableName(buildJobName, componentName));
+            env.put(getEndUserVersionEnvVarName(componentName), "${{ " + formatOutputVersionVariableName(buildJobName, componentName) + "}}");
         }
         env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
 
