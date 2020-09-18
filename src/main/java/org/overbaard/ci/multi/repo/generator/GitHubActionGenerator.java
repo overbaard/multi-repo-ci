@@ -28,6 +28,7 @@ import org.overbaard.ci.multi.repo.config.trigger.Component;
 import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
+import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
 import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
 import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
@@ -59,6 +60,8 @@ public class GitHubActionGenerator {
     static final String REPO_BACKUPS = "repo-backups";
     static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/" + REPO_BACKUPS);
     final static Path MAVEN_REPO;
+    public static final String TOOL_JAR_NAME = "multi-repo-ci-tool.jar";
+
     static {
         if (System.getenv("HOME") == null) {
             throw new IllegalStateException("No HOME env var set!");
@@ -373,7 +376,7 @@ public class GitHubActionGenerator {
 
             steps.add(
                     new RunMultiRepoCiToolCommandBuilder()
-                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                             .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
                             .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
                             .build());
@@ -407,7 +410,7 @@ public class GitHubActionGenerator {
         final String jobLogsDir = projectLogsDir + "/" + jobName;
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                         .setCommand(CopyLogArtifacts.Command.NAME)
                         .addArgs(".", jobLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
@@ -439,7 +442,7 @@ public class GitHubActionGenerator {
         // Back up the parts of the maven repo we built
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                         .setCommand(BackupMavenArtifacts.Command.NAME)
                         .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
                         .setIfCondition(IfCondition.SUCCESS)
@@ -471,7 +474,7 @@ public class GitHubActionGenerator {
         }
 
         if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
-            String jobName = "status-" + formatTriggerName(triggerConfig);
+            String jobName = "ob-ci-status";
             IssueStatusReportJobBuilder jobBuilder =
                     new IssueStatusReportJobBuilder(jobName, issueNumber);
             jobBuilder.setNeeds(jobs.keySet());
@@ -489,7 +492,7 @@ public class GitHubActionGenerator {
 
         // Copy the job so that the ordering is better
         Map<String, Object> jobCopy = new LinkedHashMap<>();
-        String jobName = "end-job-" + formatTriggerName(triggerConfig);
+        String jobName = "ob-ci-end-job";
         jobCopy.put("name", jobName);
         jobCopy.put("runs-on", "ubuntu-latest");
         jobCopy.put("needs", new ArrayList<>(jobs.keySet()));
@@ -531,6 +534,14 @@ public class GitHubActionGenerator {
 
         steps.add(new Ipv6LocalhostBuilder().build());
 
+        steps.add(
+                new RunMultiRepoCiToolCommandBuilder()
+                        .setJar(TOOL_JAR_NAME)
+                        .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
+                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .build());
+
+
         // RepoConfigParser has validated the job format already
         List<Object> jobSteps = (List<Object>)job.get("steps");
         steps.addAll(jobSteps);
@@ -541,7 +552,8 @@ public class GitHubActionGenerator {
 
     private void setupCleanupJob(TriggerConfig triggerConfig) {
         Map<String, Object> job = new LinkedHashMap<>();
-        job.put("name", "cleanup-" + formatTriggerName(triggerConfig));
+        String name = "ob-ci-cleanup";
+        job.put("name", name);
         job.put("runs-on", "ubuntu-latest");
         job.put("needs", new ArrayList<>(jobs.keySet()));
         job.put("if", IfCondition.ALWAYS.getValue());
@@ -559,7 +571,7 @@ public class GitHubActionGenerator {
                         .setDeleteRemoteBranch()
                         .build());
 
-        jobs.put("cleanup-job", job);
+        jobs.put(name, job);
     }
 
     private String getComponentBuildJobId(String name) {
@@ -730,6 +742,14 @@ public class GitHubActionGenerator {
                 steps.add(artifactsDir);
             }
 
+            // Merge any split files
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                            .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
+                            .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                            .build());
+
 
             List<JobRunElementConfig> runElementConfigs = jobConfig.getRunElements();
             Map<String, Object> build = new HashMap<>();
@@ -749,6 +769,14 @@ public class GitHubActionGenerator {
             }
             build.put("run", sb.toString());
             steps.add(build);
+
+            // Make sure we split any large files that people might have copied into the artifacts directory
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
+                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .build());
             return steps;
         }
 
