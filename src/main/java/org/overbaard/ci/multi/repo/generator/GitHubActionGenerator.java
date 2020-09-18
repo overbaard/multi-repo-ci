@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.overbaard.ci.multi.repo.Main;
+import org.overbaard.ci.multi.repo.ToolCommand;
 import org.overbaard.ci.multi.repo.Usage;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
@@ -37,7 +38,6 @@ import org.yaml.snakeyaml.Yaml;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class GitHubActionGenerator {
-    public static final String GENERATE_WORKFLOW = "generate-workflow";
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
     public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
     public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
@@ -179,7 +179,7 @@ public class GitHubActionGenerator {
         usage.addArguments(ARG_BRANCH + "=<branch name>");
         usage.addInstruction("The branch that is used to trigger the workflow");
 
-        String headline = usage.getCommandUsageHeadline(url, GENERATE_WORKFLOW);
+        String headline = usage.getCommandUsageHeadline(url, GitHubActionGenerator.Command.NAME);
         System.out.print(usage.usage(headline));
     }
 
@@ -374,7 +374,7 @@ public class GitHubActionGenerator {
             steps.add(
                     new RunMultiRepoCiToolCommandBuilder()
                             .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                            .setCommand(OverlayBackedUpMavenArtifacts.OVERLAY_BACKED_UP_MAVEN_ARTIFACTS)
+                            .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
                             .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
                             .build());
         }
@@ -408,7 +408,7 @@ public class GitHubActionGenerator {
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                        .setCommand(CopyLogArtifacts.COPY_LOGS)
+                        .setCommand(CopyLogArtifacts.Command.NAME)
                         .addArgs(".", jobLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
                         .build());
@@ -440,7 +440,7 @@ public class GitHubActionGenerator {
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                        .setCommand(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS)
+                        .setCommand(BackupMavenArtifacts.Command.NAME)
                         .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
                         .setIfCondition(IfCondition.SUCCESS)
                         .build());
@@ -792,6 +792,20 @@ public class GitHubActionGenerator {
             this.dependency = dependency;
             this.buildJobName = buildJobName;
             this.versionVarName = formatOutputVersionVariableName(buildJobName, dependency.getName());
+        }
+    }
+
+    public static class Command implements ToolCommand {
+        public static final String NAME = "generate-workflow";
+
+        @Override
+        public String getDescription() {
+            return "Generates a GitHub workflow YAML from the trigger issue input";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            generate(args);
         }
     }
 }

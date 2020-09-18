@@ -11,11 +11,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.overbaard.ci.multi.repo.ToolCommand;
+
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class OverlayBackedUpMavenArtifacts {
-    public static final String OVERLAY_BACKED_UP_MAVEN_ARTIFACTS = "overlay-backed-up-maven-artifacts";
 
     private final Path mavenRepoRoot;
     private final Path backupsFolder;
@@ -95,5 +96,19 @@ public class OverlayBackedUpMavenArtifacts {
 
     static <T extends Throwable> void rethrow(Throwable t) throws T {
         throw (T) t;
+    }
+
+    public static class Command implements ToolCommand {
+        public static final String NAME = "overlay-backed-up-maven-artifacts";
+
+        @Override
+        public String getDescription() {
+            return "Overlays the maven repository with backed up maven artifacts";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            overlay(args);
+        }
     }
 }

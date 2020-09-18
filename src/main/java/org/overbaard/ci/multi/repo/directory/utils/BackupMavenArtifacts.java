@@ -21,6 +21,7 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.overbaard.ci.multi.repo.ToolCommand;
 
 /**
  * Backs up the maven artifacts created by a maven project
@@ -29,8 +30,6 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
  */
 public class BackupMavenArtifacts {
     private static final XMLInputFactory XML_INPUT_FACTORY = XMLInputFactory.newInstance();
-
-    public static final String BACKUP_MAVEN_ARTIFACTS = "backup-maven-artifacts";
 
     private final List<ProjectArtifactInfo> artifactInfos = new ArrayList<>();
 
@@ -142,5 +141,19 @@ public class BackupMavenArtifacts {
 
         Files.createDirectories(targetDir);
         Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(LargeFileAction.SPLIT, sourceDir, targetDir));
+    }
+
+    public static class Command implements ToolCommand {
+        public static final String NAME = "backup-maven-artifacts";
+
+        @Override
+        public String getDescription() {
+            return "Backs up the maven artifacts produced by this build";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            backup(args);
+        }
     }
 }
