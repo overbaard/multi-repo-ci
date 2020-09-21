@@ -313,5 +313,5 @@ jobs. (Behind the scenes if files put in here are bigger than 49MB they will be 
  the 200MB file `my-large-file.zip` you will end up with a directory called `my-large-file.zip`. That
  directory will contain files created by splitting the original file, and a script called `reassemble.sh`
  which can be used to reassemble the file. However, these files will be merged into their original
- state before you can use them).
+ state before you can use them from any end jobs or custom component build jobs).
 
