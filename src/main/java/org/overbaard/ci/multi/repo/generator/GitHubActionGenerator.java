@@ -683,7 +683,9 @@ public class GitHubActionGenerator {
         }
 
         public Map<String, String> createEnv() {
-            return Collections.emptyMap();
+            Map<String, String> env = new HashMap<>();
+            addComponentVersionEnvVars(env);
+            return env;
         }
 
         protected boolean isBuildJob() {
