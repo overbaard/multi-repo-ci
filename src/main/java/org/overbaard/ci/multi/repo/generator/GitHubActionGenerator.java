@@ -18,9 +18,11 @@ import java.util.Map;
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.ToolCommand;
 import org.overbaard.ci.multi.repo.Usage;
+import org.overbaard.ci.multi.repo.config.component.BaseComponentJobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentEndJobConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
-import org.overbaard.ci.multi.repo.config.component.JobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.JobRunElementConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
@@ -41,6 +43,7 @@ import org.yaml.snakeyaml.Yaml;
 public class GitHubActionGenerator {
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
     public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
+    public static final String OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME = "OB_MAVEN_DEPENDENCY_VERSIONS";
     public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
     public static final String OB_ARTIFACTS_DIRECTORY_NAME = "artifacts";
 
@@ -195,9 +198,7 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
-        if (repoConfig.getEndJob() != null) {
-            setupEndJob(repoConfig, triggerConfig);
-        }
+        setupWorkflowEndJob(repoConfig);
         setupReportingJob(repoConfig, triggerConfig);
 
         setupCleanupJob(triggerConfig);
@@ -253,10 +254,10 @@ public class GitHubActionGenerator {
             }
             if (!Files.exists(componentJobsFile)) {
                 System.out.println("No " + componentJobsFile + " found. Setting up default job for component: " + component.getName());
-                setupDefaultComponentBuildJob(jobs, repoConfig, component);
+                setupDefaultComponentBuildJob(repoConfig, component);
             } else {
                 System.out.println("using " + componentJobsFile + " to add job(s) for component: " + component.getName());
-                setupComponentBuildJobsFromFile(jobs, repoConfig, component, componentJobsFile);
+                setupComponentBuildJobsFromFile(repoConfig, component, componentJobsFile);
             }
         }
         workflow.put("jobs", jobs);
@@ -281,17 +282,17 @@ public class GitHubActionGenerator {
         return sb.toString();
     }
 
-    private void setupDefaultComponentBuildJob(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component) {
+    private void setupDefaultComponentBuildJob(RepoConfig repoConfig, Component component) {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
-        componentJobs.put(getComponentBuildJobId(component.getName()), job);
+        jobs.put(getComponentBuildJobId(component.getName()), job);
         if (context.isBuildJob()) {
             buildJobNamesByComponent.put(component.getName(), getComponentBuildJobId(context.getJobName()));
         }
 
     }
 
-    private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
+    private void setupComponentBuildJobsFromFile(RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
         ComponentJobsConfig config = ComponentJobsConfigParser.create(componentJobsFile).parse();
         if (component.getMavenOpts() != null) {
             throw new IllegalStateException(component.getName() +
@@ -299,19 +300,25 @@ public class GitHubActionGenerator {
                     ". Remove mavenOpts and configure the job in the compponent job file.");
         }
         componentJobsConfigs.put(component.getName(), config);
-        List<JobConfig> jobConfigs = config.getJobs();
-        for (JobConfig jobConfig : jobConfigs) {
-            boolean buildJob = config.getBuildJob().equals(jobConfig.getName());
-            if (!component.isDebug() || config.getBuildJob().equals(jobConfig.getName())) {
-                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, config.getBuildJob(), jobConfig);
+        List<ComponentJobConfig> componentJobConfigs = config.getJobs();
+        for (ComponentJobConfig componentJobConfig : componentJobConfigs) {
+            boolean buildJob = config.getBuildJob().equals(componentJobConfig.getName());
+            if (!component.isDebug() || buildJob) {
+                setupComponentBuildJobFromConfig(repoConfig, component, config.getBuildJob(), componentJobConfig);
             }
+        }
+
+        if (config.getEndJob() != null) {
+            ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, config.getBuildJob(), config.getEndJob());
+            Map<String, Object> job = setupJob(context);
+            jobs.put((String)job.get("name"), job);
         }
     }
 
-    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, String buildJobName, JobConfig jobConfig) {
-        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, buildJobName, jobConfig);
+    private void setupComponentBuildJobFromConfig(RepoConfig repoConfig, Component component, String buildJobName, BaseComponentJobConfig componentJobConfig) {
+        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, buildJobName, componentJobConfig);
         Map<String, Object> job = setupJob(context);
-        componentJobs.put(jobConfig.getName(), job);
+        jobs.put(componentJobConfig.getName(), job);
         if (context.isBuildJob()) {
             buildJobNamesByComponent.put(component.getName(), context.getJobName());
         }
@@ -327,6 +334,8 @@ public class GitHubActionGenerator {
         Map<String, Object> job = new LinkedHashMap<>();
         job.put("name", jobName);
         job.put("runs-on", "ubuntu-latest");
+
+        context.addIfClause(job);
 
         Map<String, String> env = context.createEnv();
         if (env.size() > 0) {
@@ -396,7 +405,7 @@ public class GitHubActionGenerator {
         // Make sure that localhost maps to ::1 in the hosts file
         steps.add(new Ipv6LocalhostBuilder().build());
 
-        steps.addAll(context.createBuildJobs());
+        steps.addAll(context.createBuildSteps());
 
         if (context.getComponent().isDebug()) {
             steps.add(new TmateDebugBuilder().build());
@@ -488,24 +497,25 @@ public class GitHubActionGenerator {
         }
     }
 
-    private void setupEndJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
-        Map<String, Object> job = repoConfig.getEndJob();
+    private void setupWorkflowEndJob(RepoConfig repoConfig) {
+        setupEndJob(repoConfig.getEndJob(), repoConfig, "ob-ci-end-job", new ArrayList<>(jobs.keySet()));
+    }
 
+    private void setupEndJob(Map<String, Object> job, RepoConfig repoConfig, String jobName, List<String> needs) {
+        if (job == null) {
+            return;
+        }
         // Copy the job so that the ordering is better
         Map<String, Object> jobCopy = new LinkedHashMap<>();
-        String jobName = "ob-ci-end-job";
         jobCopy.put("name", jobName);
         jobCopy.put("runs-on", "ubuntu-latest");
-        jobCopy.put("needs", new ArrayList<>(jobs.keySet()));
+        jobCopy.put("needs", needs);
 
         // RepoConfigParser has ensured there is always an env entry
-        Map<String, Object> env = new HashMap<>((Map<String, Object>)job.get("env"));
+        Map<String, String> env = new HashMap<>((Map<String, String>)job.get("env"));
         jobCopy.put("env", env);
-        for (Map.Entry<String, String> entry : buildJobNamesByComponent.entrySet()) {
-            String componentName = entry.getKey();
-            String buildJobName = entry.getValue();
-            env.put(getEndUserVersionEnvVarName(componentName), "${{ " + formatOutputVersionVariableName(buildJobName, componentName) + "}}");
-        }
+        addComponentVersionEnvVars(env);
+
         env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
 
         for (String key : job.keySet()) {
@@ -575,6 +585,14 @@ public class GitHubActionGenerator {
         jobs.put(name, job);
     }
 
+    private void addComponentVersionEnvVars(Map<String, String> env) {
+        for (Map.Entry<String, String> entry : buildJobNamesByComponent.entrySet()) {
+            String componentName = entry.getKey();
+            String buildJobName = entry.getValue();
+            env.put(getEndUserVersionEnvVarName(componentName), "${{ " + formatOutputVersionVariableName(buildJobName, componentName) + "}}");
+        }
+    }
+
     private String getComponentBuildJobId(String name) {
         return name + "-build";
     }
@@ -584,11 +602,7 @@ public class GitHubActionGenerator {
     }
 
     private String getEndUserVersionEnvVarName(String name) {
-        return getInternalVersionEnvVarName(name).toUpperCase();
-    }
-
-    private String formatTriggerName(TriggerConfig triggerConfig) {
-        return triggerConfig.getName().replace(' ', '-').toLowerCase();
+        return "OB_" + getInternalVersionEnvVarName(name).toUpperCase();
     }
 
     private String formatOutputVersionVariableName(String buildJobName, String componentName) {
@@ -648,14 +662,16 @@ public class GitHubActionGenerator {
             return needs;
         }
 
-        abstract List<Map<String, Object>> createBuildJobs();
+        abstract List<Map<String, Object>> createBuildSteps();
 
         protected String getDependencyVersionMavenProperties() {
             StringBuilder sb = new StringBuilder();
             for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
-                sb.append(" ");
-
-                sb.append("-D" + depCtx.dependency.getProperty() + "=\"${{" + depCtx.versionVarName + "}}\"");
+                if (sb.length() > 0) {
+                    sb.append(" ");
+                }
+                String versionVarName = getEndUserVersionEnvVarName(depCtx.dependency.getName());
+                sb.append("-D" + depCtx.dependency.getProperty() + "=${" + versionVarName + "}");
             }
             return sb.toString();
         }
@@ -666,6 +682,10 @@ public class GitHubActionGenerator {
 
         protected boolean isBuildJob() {
             return true;
+        }
+
+        public void addIfClause(Map<String, Object> job) {
+            // Default is to do nothing
         }
     }
 
@@ -680,7 +700,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        List<Map<String, Object>> createBuildJobs() {
+        List<Map<String, Object>> createBuildSteps() {
             return Collections.singletonList(
                     new MavenBuildBuilder()
                             .setOptions(getMavenOptions(component))
@@ -709,30 +729,40 @@ public class GitHubActionGenerator {
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
         private final String buildJobName;
-        private final JobConfig jobConfig;
+        private final BaseComponentJobConfig componentJobConfig;
 
-        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, String buildJobName, JobConfig jobConfig) {
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, String buildJobName, BaseComponentJobConfig componentJobConfig) {
             super(repoConfig, component);
             this.buildJobName = buildJobName;
-            this.jobConfig = jobConfig;
+            this.componentJobConfig = componentJobConfig;
         }
 
         @Override
         public String getJobName() {
-            return jobConfig.getName();
+            return componentJobConfig.getName();
+        }
+
+        @Override
+        public void addIfClause(Map<String, Object> job) {
+            if (componentJobConfig.isEndJob()) {
+                String ifCondition = ((ComponentEndJobConfig) componentJobConfig).getIfCondition();
+                if (ifCondition != null) {
+                    job.put("if", ifCondition);
+                }
+            }
         }
 
         @Override
         protected List<String> createNeeds() {
             List<String> needs = super.createNeeds();
-            for (String need : jobConfig.getNeeds()) {
+            for (String need : componentJobConfig.getNeeds()) {
                 needs.add(need);
             }
             return needs;
         }
 
         @Override
-        List<Map<String, Object>> createBuildJobs() {
+        List<Map<String, Object>> createBuildSteps() {
             List<Map<String, Object>> steps = new ArrayList<>();
 
             if (isBuildJob()) {
@@ -755,24 +785,28 @@ public class GitHubActionGenerator {
                             .build());
 
 
-            List<JobRunElementConfig> runElementConfigs = jobConfig.getRunElements();
-            Map<String, Object> build = new HashMap<>();
-            build.put("name", "Maven Build");
-            StringBuilder sb = new StringBuilder();
-            for (JobRunElementConfig cfg : runElementConfigs) {
-                if (cfg.getType() == JobRunElementConfig.Type.SHELL) {
-                    sb.append(cfg.getCommand());
-                    sb.append("\n");
-                } else {
-                    sb.append("mvn -B ");
-                    sb.append(cfg.getCommand());
-                    sb.append(" ");
-                    sb.append(getDependencyVersionMavenProperties());
-                    sb.append("\n");
+            if (componentJobConfig.isEndJob()) {
+                steps.addAll(((ComponentEndJobConfig)componentJobConfig).getSteps());
+            } else {
+                List<JobRunElementConfig> runElementConfigs = ((ComponentJobConfig)componentJobConfig).getRunElements();
+                Map<String, Object> build = new HashMap<>();
+                build.put("name", "Maven Build");
+                StringBuilder sb = new StringBuilder();
+                for (JobRunElementConfig cfg : runElementConfigs) {
+                    if (cfg.getType() == JobRunElementConfig.Type.SHELL) {
+                        sb.append(cfg.getCommand());
+                        sb.append("\n");
+                    } else {
+                        sb.append("mvn -B ");
+                        sb.append(cfg.getCommand());
+                        sb.append(" ");
+                        sb.append(getDependencyVersionMavenProperties());
+                        sb.append("\n");
+                    }
                 }
+                build.put("run", sb.toString());
+                steps.add(build);
             }
-            build.put("run", sb.toString());
-            steps.add(build);
 
             // Make sure we split any large files that people might have copied into the artifacts directory
             steps.add(
@@ -788,20 +822,22 @@ public class GitHubActionGenerator {
         public Map<String, String> createEnv() {
             Map<String, String> env = new HashMap<>();
             env.putAll(super.createEnv());
-            env.putAll(jobConfig.getJobEnv());
+            env.putAll(componentJobConfig.getJobEnv());
             env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
             if (!isBuildJob()) {
                 String var = "${{ " + formatOutputVersionVariableName(buildJobName, component.getName() + " }}");
                 env.put(OB_PROJECT_VERSION_VAR_NAME, var);
             }
+            addComponentVersionEnvVars(env);
+            env.put(OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME, getDependencyVersionMavenProperties());
             return env;
         }
 
         public String getJavaVersion() {
             String javaVersion = super.getJavaVersion();
             // Let the user override the java version specified in the job config
-            if (jobConfig.getJavaVersion() != null) {
-                javaVersion = jobConfig.getJavaVersion();
+            if (componentJobConfig.getJavaVersion() != null) {
+                javaVersion = componentJobConfig.getJavaVersion();
             }
             if (component.getJavaVersion() != null) {
                 javaVersion = component.getJavaVersion();
@@ -811,19 +847,17 @@ public class GitHubActionGenerator {
 
         @Override
         protected boolean isBuildJob() {
-            return buildJobName.equals(jobConfig.getName());
+            return componentJobConfig.isBuildJob();
         }
     }
 
     private class ComponentDependencyContext {
         final Dependency dependency;
         final String buildJobName;
-        final String versionVarName;
 
         public ComponentDependencyContext(Dependency dependency, String buildJobName) {
             this.dependency = dependency;
             this.buildJobName = buildJobName;
-            this.versionVarName = formatOutputVersionVariableName(buildJobName, dependency.getName());
         }
     }
 

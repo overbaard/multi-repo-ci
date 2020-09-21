@@ -48,6 +48,7 @@ public class ComponentJobsConfigParser extends BaseParser {
         Object jobsInput = input.remove("jobs");
         Object buildJobInput = input.remove("build-job");
         Object javaVersionInput = input.remove("java-version");
+        Object endJobInput = input.remove("end-job");
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
         }
@@ -58,45 +59,48 @@ public class ComponentJobsConfigParser extends BaseParser {
             throw new IllegalStateException("No 'build-job' entry");
         }
 
-        Map<String, String> mainEnv = parseEnv(envInput);
-        String javaVersion = parseJavaVersion(javaVersionInput);
-
-        Map<String, JobConfig> jobs = parseJobs(javaVersion, mainEnv, jobsInput);
-        if (jobs.size() == 0) {
-            throw new IllegalStateException("'jobs' entry is empty");
-        }
-
         if (buildJobInput instanceof String == false) {
             throw new IllegalStateException("'build-job' entry is not a String: " + buildJobInput);
         }
         String buildJob = (String) buildJobInput;
-        if (jobs.get(buildJob) == null) {
-            throw new IllegalStateException("No job called '" + buildJob +
-                    "' referenced by 'build-step' entry: " + buildJob);
+
+        Map<String, String> mainEnv = parseEnv(envInput);
+        String javaVersion = parseJavaVersion(javaVersionInput);
+
+        Map<String, ComponentJobConfig> jobs = parseJobs(buildJob, javaVersion, mainEnv, jobsInput);
+        if (jobs.size() == 0) {
+            throw new IllegalStateException("'jobs' entry is empty");
         }
 
-        return new ComponentJobsConfig(componentName, createJobName(buildJob), new ArrayList<>(jobs.values()));
+        if (jobs.get(buildJob) == null) {
+            throw new IllegalStateException("No job called '" + buildJob +
+                    "' referenced by 'build-job' entry: " + buildJob);
+        }
+
+        Map<String, Object> endJob = preParseEndJob(endJobInput);
+        ComponentEndJobConfig endJobConfig = parseEndJob(endJob, jobs, javaVersion, mainEnv);
+
+        return new ComponentJobsConfig(componentName, createJobName(buildJob), new ArrayList<>(jobs.values()), endJobConfig);
     }
 
-    private Map<String, JobConfig> parseJobs(String javaVersion, Map<String, String> mainEnv, Object input) {
+    private Map<String, ComponentJobConfig> parseJobs(String buildJob, String javaVersion, Map<String, String> mainEnv, Object input) {
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
-        Map<String, JobConfig> jobs = new LinkedHashMap<>();
+        Map<String, ComponentJobConfig> jobs = new LinkedHashMap<>();
         Map<String, Object> map = (Map)input;
         for (String key : map.keySet()) {
-            JobConfig job = parseJob(javaVersion, mainEnv, key, map.get(key));
+            ComponentJobConfig job = parseJob(buildJob, javaVersion, mainEnv, key, map.get(key));
             jobs.put(key, job);
         }
         return jobs;
     }
 
-    private JobConfig parseJob(String javaVersion, Map<String, String> mainEnv, String jobKey, Object input) {
+    private ComponentJobConfig parseJob(String buildJob, String javaVersion, Map<String, String> mainEnv, String jobKey, Object input) {
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
         Map<String, Object> map = (Map)input;
-
         String name = createJobName(jobKey);
         Map<String, String> jobEnv = new HashMap<>();
         List<String> needs = new ArrayList<>();
@@ -125,14 +129,65 @@ public class ComponentJobsConfigParser extends BaseParser {
         jobKeys.add(jobKey);
 
 
-        //Merge the  main env entries and the job env entries, making sure the job ones come last
+        //Merge the main env entries and the job env entries, making sure the job ones come last
         jobEnv = mergeEnv(mainEnv, jobEnv);
         if (runElements == null) {
             throw new IllegalStateException("Null 'run'");
         }
 
 
-        return new JobConfig(name, jobEnv, javaVersion, needs, runElements);
+        return new ComponentJobConfig(name, jobKey.equals(buildJob), jobEnv, javaVersion, needs, runElements);
+    }
+
+    private ComponentEndJobConfig parseEndJob(Map<String, Object> map, Map<String, ComponentJobConfig> jobs, String javaVersion, Map<String, String> mainEnv) {
+        if (map == null) {
+            return null;
+        }
+        String name = createJobName("ob-end-job-" + componentName);
+        Map<String, String> jobEnv = new HashMap<>();
+        List<String> needs = new ArrayList<>();
+        for (ComponentJobConfig job : jobs.values()) {
+           needs.add(job.getName());
+        }
+
+        List<Map<String, Object>> steps = null;
+        String ifCondition = null;
+        for (String key : map.keySet()) {
+            switch (key) {
+                case "env": {
+                    jobEnv = parseEnv(map.get(key));
+                    break;
+                }
+                case "if": {
+                    Object o = map.get(key);
+                    if (!(o instanceof String)) {
+                        throw new IllegalStateException("'if' must be a string");
+                    }
+                    ifCondition = (String) o;
+                }
+                break;
+                case "steps": {
+                    steps = (List<Map<String, Object>>)map.get(key);
+                    break;
+                }
+                case "java-version": {
+                    javaVersion = parseJavaVersion(map.get(key));
+                    break;
+                }
+                default:
+                    throw new IllegalStateException("Unknown entry: " + key);
+            }
+        }
+
+
+        //Merge the main env entries and the job env entries, making sure the job ones come last
+        jobEnv = mergeEnv(mainEnv, jobEnv);
+        if (steps == null || steps.size() == 0) {
+            throw new IllegalStateException("No 'steps'");
+        }
+
+
+        return new ComponentEndJobConfig(name, jobEnv, javaVersion, needs, ifCondition, steps);
     }
 
     private Map<String, String> mergeEnv(Map<String, String> mainEnv, Map<String, String> jobEnv) {

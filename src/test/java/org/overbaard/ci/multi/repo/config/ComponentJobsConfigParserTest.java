@@ -12,7 +12,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
-import org.overbaard.ci.multi.repo.config.component.JobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.JobRunElementConfig;
 
 /**
@@ -30,10 +30,10 @@ public class ComponentJobsConfigParserTest {
         String buildJob = config.getBuildJob();
         Assert.assertEquals("component-job-test-build", buildJob);
 
-        List<JobConfig> jobs = config.getJobs();
+        List<ComponentJobConfig> jobs = config.getJobs();
         Assert.assertEquals(2, jobs.size());
 
-        JobConfig build = jobs.get(0);
+        ComponentJobConfig build = jobs.get(0);
         Assert.assertEquals("component-job-test-build", build.getName());
         Assert.assertEquals(0, build.getNeeds().size());
         Assert.assertEquals("13", build.getJavaVersion());
@@ -52,7 +52,7 @@ public class ComponentJobsConfigParserTest {
         Assert.assertEquals("echo hi", buildRun.get(1).getCommand());
 
 
-        JobConfig ts = jobs.get(1);
+        ComponentJobConfig ts = jobs.get(1);
         Assert.assertEquals("component-job-test-ts", ts.getName());
         Assert.assertEquals(1, ts.getNeeds().size());
         Assert.assertEquals("16", ts.getJavaVersion());
