@@ -376,7 +376,7 @@ public class GitHubActionGenerator {
                         .setVersion(context.getJavaVersion())
                         .build());
 
-        if (needs.size() > 0) {
+        if (context.hasDependencies()) {
             // Get the maven artifact backups
             steps.add(
                     new GitCommandBuilder()
@@ -662,6 +662,12 @@ public class GitHubActionGenerator {
             return needs;
         }
 
+        public boolean hasDependencies() {
+            // Build jobs get the cancel previous runs job added
+            int limit = isBuildJob() ? 1 : 0;
+            return createNeeds().size() > limit;
+        }
+
         abstract List<Map<String, Object>> createBuildSteps();
 
         protected String getDependencyVersionMavenProperties() {
@@ -687,6 +693,7 @@ public class GitHubActionGenerator {
         public void addIfClause(Map<String, Object> job) {
             // Default is to do nothing
         }
+
     }
 
     private class DefaultComponentJobContext extends ComponentJobContext {
