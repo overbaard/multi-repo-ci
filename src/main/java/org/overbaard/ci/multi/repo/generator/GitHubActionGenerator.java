@@ -61,6 +61,7 @@ public class GitHubActionGenerator {
     static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/" + REPO_BACKUPS);
     final static Path MAVEN_REPO;
     public static final String TOOL_JAR_NAME = "multi-repo-ci-tool.jar";
+    public static final String CANCEL_PREVIOUS_RUNS_JOB_NAME = "cancel-previous-runs";
 
     static {
         if (System.getenv("HOME") == null) {
@@ -242,7 +243,7 @@ public class GitHubActionGenerator {
 
         this.jobLogsArtifactName = createJobLogsArtifactName(triggerConfig);
 
-        jobs.put("cancel-previous-runs", new CancelPreviousRunsJobBuilder(branchName).build());
+        jobs.put(CANCEL_PREVIOUS_RUNS_JOB_NAME, new CancelPreviousRunsJobBuilder(branchName).build());
 
         for (Component component : triggerConfig.getComponents()) {
             Path componentJobsFile = COMPONENT_JOBS_DIR.resolve(component.getName() + ".yml");
@@ -638,6 +639,9 @@ public class GitHubActionGenerator {
 
         protected List<String> createNeeds() {
             List<String> needs = new ArrayList<>();
+            if (isBuildJob()) {
+                needs.add(CANCEL_PREVIOUS_RUNS_JOB_NAME);
+            }
             for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
                 needs.add(depCtx.buildJobName);
             }
