@@ -18,8 +18,8 @@ public class CopyLogArtifacts {
     private final Path outputPath;
 
     public CopyLogArtifacts(Path inputPath, Path outputPath) {
-        this.inputPath = inputPath;
-        this.outputPath = outputPath;
+        this.inputPath = inputPath.toAbsolutePath();
+        this.outputPath = outputPath.toAbsolutePath();
     }
 
     static void copy(String[] args) throws Exception {
