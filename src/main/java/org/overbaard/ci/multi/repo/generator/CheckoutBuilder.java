@@ -48,7 +48,7 @@ class CheckoutBuilder {
         if (path != null) {
             with.put("path", path);
         }
-        with.put("fetch-depth", 0);
+
 
         return with;
     }
