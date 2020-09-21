@@ -17,8 +17,9 @@ import java.util.Set;
 public class SplitFileUtil {
     private static final String SPLIT_FILE_DIRECTORY_SUFFIX = ".split.file.dir";
 
-    // GitHub's max file size is 100Mb. Set it to 90 just to have some leeway
-    private static final long MAX_SIZE_BYTES = 90 * 1024 * 1024;
+    // GitHub's max file size is 100Mb. It recommends max 50.
+    // Set it to 49 just to have some leeway
+    private static final long MAX_SIZE_BYTES = 49 * 1024 * 1024;
 
     static boolean isSplitFilesDirectory(Path dir) {
         if (Files.isDirectory(dir) && dir.getFileName().toString().endsWith(SplitFileUtil.SPLIT_FILE_DIRECTORY_SUFFIX)) {

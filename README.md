@@ -183,7 +183,7 @@ issue-reporting:
 ```
 
 
-### Tailoring build
+### Custom component build
 By default with what we have seen so far, the tool will generate a workflow file 
 which simply does the following steps for each component:
 * Check out the specified repo + branch
@@ -257,7 +257,7 @@ snapshots of other components, any `mvn` command must happen in a `mvn` entry.
 Other shell commands happen in a `shell` entry. The tool will give an error if 
 you try to use mvn from a `shell` entry.
 
-Next the mvn command ends up having `-DskipTests` passed in 
+Next the `mvn` command ends up having `-DskipTests` passed in
 (from the `MAVEN_BUILD_EXTRA_PARAMS` env entry), which in this component's build 
 means it will skip all unit tests and integration tests. This results in a build t
 hat is as fast as possible.
@@ -306,11 +306,12 @@ Both `ts-smoke` and `ts-domain` wait for the `build` job to complete before
 they are run. But the nice thing is they can run in parallel, which speeds 
 testing up a lot.
 
-Each of the steps in a tailored build has access to the following env vars: 
+Each of the steps in a tailored build has access to the following env vars:
 * `${$OB_PROJECT_VERSION}` - contains the captured version of the component being built
 * `${OB_ARTIFACTS_DIR}` - contains the location of a directory that can be used to share files between 
-jobs. Note that if files put in here are bigger than 90MB they will be split. So if you added the 200MB file
-`my-large-file.zip` you will end up with a directory called `my-large-file.zip`. That directory will contain 
-files created by splitting the original file, and a script called `reassemble.sh` which can be used to 
-reassemble the file.  
+jobs. (Behind the scenes if files put in here are bigger than 49MB they will be split. So if you added
+ the 200MB file `my-large-file.zip` you will end up with a directory called `my-large-file.zip`. That
+ directory will contain files created by splitting the original file, and a script called `reassemble.sh`
+ which can be used to reassemble the file. However, these files will be merged into their original
+ state before you can use them).
 
