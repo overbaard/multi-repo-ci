@@ -65,6 +65,7 @@ public class SplitFileUtil {
             long remainingBytes = sourceSize % bytesPerSplit;
 
             Path splitDir = file.getParent().resolve(file.getFileName().toString() + SPLIT_FILE_DIRECTORY_SUFFIX);
+            System.out.println("Splitting " + file + " to " + splitDir);
             if (Files.exists(splitDir)) {
                 Files.walkFileTree(splitDir.toAbsolutePath(), new CopyDirectoryVisitor.DeleteFilesVisitor());
             }
