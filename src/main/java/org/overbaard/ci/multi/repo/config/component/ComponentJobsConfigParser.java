@@ -143,7 +143,7 @@ public class ComponentJobsConfigParser extends BaseParser {
         if (map == null) {
             return null;
         }
-        String name = createJobName("ob-end-job-" + componentName);
+        String name = createJobName("ob-ci-end-job");
         Map<String, String> jobEnv = new HashMap<>();
         List<String> needs = new ArrayList<>();
         for (ComponentJobConfig job : jobs.values()) {
