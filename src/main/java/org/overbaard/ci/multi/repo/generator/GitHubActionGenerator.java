@@ -85,6 +85,7 @@ public class GitHubActionGenerator {
     private final String branchName;
     private final int issueNumber;
     private String jobLogsArtifactName;
+    private boolean hasDebugComponents;
 
     private GitHubActionGenerator(Path workflowFile, Path yamlConfig, String branchName, int issueNumber) {
         this.workflowFile = workflowFile;
@@ -198,10 +199,11 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
-        setupWorkflowEndJob(repoConfig);
-        setupReportingJob(repoConfig, triggerConfig);
-
-        setupCleanupJob(triggerConfig);
+        if (hasDebugComponents) {
+            setupWorkflowEndJob(repoConfig);
+            setupReportingJob(repoConfig, triggerConfig);
+            setupCleanupJob(triggerConfig);
+        }
 
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
@@ -408,6 +410,7 @@ public class GitHubActionGenerator {
         steps.addAll(context.createBuildSteps());
 
         if (context.getComponent().isDebug()) {
+            hasDebugComponents = true;
             steps.add(new TmateDebugBuilder().build());
         }
 
