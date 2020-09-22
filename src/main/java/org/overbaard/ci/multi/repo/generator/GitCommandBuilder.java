@@ -98,7 +98,8 @@ public class GitCommandBuilder {
             run.append("\n");
         }
         if (commitMessage != null) {
-            run.append("git commit -m \"" + commitMessage + "\"\n");
+            run.append("branch_status=$(git status --porcelain)\n");
+            run.append("[[ ! -z \"${branch_status}}\" ]] && git commit -m \"" + commitMessage + "\" || echo \"No changes\"\n");
         }
 
         if (push || rebase) {
