@@ -525,7 +525,11 @@ public class GitHubActionGenerator {
         }
 
         List<Object> steps = new ArrayList();
+
         // Add boiler plate steps
+
+        steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+
         steps.add(new CheckoutBuilder()
                 .setBranch(branchName)
                 .build());
@@ -773,6 +777,8 @@ public class GitHubActionGenerator {
         @Override
         List<Map<String, Object>> createBuildSteps() {
             List<Map<String, Object>> steps = new ArrayList<>();
+
+            steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
 
             if (isBuildJob()) {
                 // Ensure the artifacts directory is there
