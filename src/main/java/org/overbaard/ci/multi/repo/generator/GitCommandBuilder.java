@@ -23,9 +23,9 @@ public class GitCommandBuilder {
         return this;
     }
 
-    GitCommandBuilder setUserAndEmail(String gitUser, String gitEmail) {
-        this.gitUser = gitUser;
-        this.gitEmail = gitEmail;
+    GitCommandBuilder setStandardUserAndEmail() {
+        this.gitUser = "CI Action";
+        this.gitEmail = "ci@example.com";
         return this;
     }
 
@@ -69,6 +69,9 @@ public class GitCommandBuilder {
         command.put("name", "Git command-line work");
         if (workingDirectory != null) {
             command.put("working-directory", workingDirectory);
+        }
+        if (ifCondition != null) {
+            command.put("if", ifCondition.getValue());
         }
 
         StringBuilder run = new StringBuilder();
@@ -116,9 +119,6 @@ public class GitCommandBuilder {
 
         command.put("run", run.toString());
 
-        if (ifCondition != null) {
-            command.put("if", ifCondition.getValue());
-        }
 
         return command;
     }

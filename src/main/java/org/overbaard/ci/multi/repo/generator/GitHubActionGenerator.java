@@ -462,7 +462,7 @@ public class GitHubActionGenerator {
         steps.add(
                 new GitCommandBuilder()
                         .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-                        .setUserAndEmail("CI Action", "ci@example.com")
+                        .setStandardUserAndEmail()
                         .addFiles("-A")
                         .setCommitMessage("Back up the maven artifacts created by " + context.getComponent().getName())
                         .setPush()
@@ -830,6 +830,20 @@ public class GitHubActionGenerator {
                         .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
                         .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
                         .build());
+
+            if (!isBuildJob()) {
+                // For build jobs this will be handled by the main boiler plate steps
+                steps.add(
+                        new GitCommandBuilder()
+                                .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+                                .setStandardUserAndEmail()
+                                .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                                .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + getJobName())
+                                .setPush()
+                                .setIfCondition(IfCondition.SUCCESS)
+                                .build());
+
+            }
             return steps;
         }
 
