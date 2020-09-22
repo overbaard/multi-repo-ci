@@ -8,21 +8,21 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
+import org.overbaard.ci.multi.repo.ToolCommand;
 import org.overbaard.ci.multi.repo.Usage;
+import org.overbaard.ci.multi.repo.config.component.BaseComponentJobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentEndJobConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfig;
 import org.overbaard.ci.multi.repo.config.component.ComponentJobsConfigParser;
-import org.overbaard.ci.multi.repo.config.component.JobConfig;
+import org.overbaard.ci.multi.repo.config.component.ComponentJobConfig;
 import org.overbaard.ci.multi.repo.config.component.JobRunElementConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfig;
 import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
@@ -30,9 +30,10 @@ import org.overbaard.ci.multi.repo.config.trigger.Component;
 import org.overbaard.ci.multi.repo.config.trigger.Dependency;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfig;
 import org.overbaard.ci.multi.repo.config.trigger.TriggerConfigParser;
+import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifacts;
+import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
+import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -40,8 +41,11 @@ import org.yaml.snakeyaml.Yaml;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class GitHubActionGenerator {
-    public static final String GENERATE_WORKFLOW = "generate-workflow";
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
+    public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
+    public static final String OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME = "OB_MAVEN_DEPENDENCY_VERSIONS";
+    public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
+    public static final String OB_ARTIFACTS_DIRECTORY_NAME = "artifacts";
 
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
@@ -56,8 +60,12 @@ public class GitHubActionGenerator {
     static final String CI_TOOLS_CHECKOUT_FOLDER = ".ci-tools";
     static final Path REPO_CONFIG_FILE = Paths.get(".repo-config/config.yml");
     static final Path COMPONENT_JOBS_DIR = Paths.get(".repo-config/component-jobs");
-    static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/repo-backups");
+    static final String REPO_BACKUPS = "repo-backups";
+    static final Path MAVEN_REPO_BACKUPS_ROOT = Paths.get(CI_TOOLS_CHECKOUT_FOLDER + "/" + REPO_BACKUPS);
     final static Path MAVEN_REPO;
+    public static final String TOOL_JAR_NAME = "multi-repo-ci-tool.jar";
+    public static final String CANCEL_PREVIOUS_RUNS_JOB_NAME = "cancel-previous-runs";
+
     static {
         if (System.getenv("HOME") == null) {
             throw new IllegalStateException("No HOME env var set!");
@@ -71,12 +79,13 @@ public class GitHubActionGenerator {
     private final Map<String, Object> workflow = new LinkedHashMap<>();
     private final Map<String, ComponentJobsConfig> componentJobsConfigs = new HashMap<>();
     final Map<String, Object> jobs = new LinkedHashMap<>();
-    private final Set<String> buildJobNames = new LinkedHashSet<>();
+    private final Map<String, String> buildJobNamesByComponent = new LinkedHashMap<>();
     private final Path workflowFile;
     private final Path yamlConfig;
     private final String branchName;
     private final int issueNumber;
     private String jobLogsArtifactName;
+    private boolean hasDebugComponents;
 
     private GitHubActionGenerator(Path workflowFile, Path yamlConfig, String branchName, int issueNumber) {
         this.workflowFile = workflowFile;
@@ -178,7 +187,7 @@ public class GitHubActionGenerator {
         usage.addArguments(ARG_BRANCH + "=<branch name>");
         usage.addInstruction("The branch that is used to trigger the workflow");
 
-        String headline = usage.getCommandUsageHeadline(url, GENERATE_WORKFLOW);
+        String headline = usage.getCommandUsageHeadline(url, GitHubActionGenerator.Command.NAME);
         System.out.print(usage.usage(headline));
     }
 
@@ -190,7 +199,11 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
-        setupCleanupJob(triggerConfig);
+        if (hasDebugComponents) {
+            setupWorkflowEndJob(repoConfig);
+            setupReportingJob(repoConfig, triggerConfig);
+            setupCleanupJob(triggerConfig);
+        }
 
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
@@ -233,7 +246,7 @@ public class GitHubActionGenerator {
 
         this.jobLogsArtifactName = createJobLogsArtifactName(triggerConfig);
 
-        jobs.put("cancel-previous-runs", new CancelPreviousRunsJobBuilder(branchName).build());
+        jobs.put(CANCEL_PREVIOUS_RUNS_JOB_NAME, new CancelPreviousRunsJobBuilder(branchName).build());
 
         for (Component component : triggerConfig.getComponents()) {
             Path componentJobsFile = COMPONENT_JOBS_DIR.resolve(component.getName() + ".yml");
@@ -243,13 +256,12 @@ public class GitHubActionGenerator {
             }
             if (!Files.exists(componentJobsFile)) {
                 System.out.println("No " + componentJobsFile + " found. Setting up default job for component: " + component.getName());
-                setupDefaultComponentBuildJob(jobs, repoConfig, component);
+                setupDefaultComponentBuildJob(repoConfig, component);
             } else {
                 System.out.println("using " + componentJobsFile + " to add job(s) for component: " + component.getName());
-                setupComponentBuildJobsFromFile(jobs, repoConfig, component, componentJobsFile);
+                setupComponentBuildJobsFromFile(repoConfig, component, componentJobsFile);
             }
         }
-        jobs.put("job-status-report", setupReportingJob(jobs.keySet(), repoConfig));
         workflow.put("jobs", jobs);
     }
 
@@ -272,17 +284,17 @@ public class GitHubActionGenerator {
         return sb.toString();
     }
 
-    private void setupDefaultComponentBuildJob(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component) {
+    private void setupDefaultComponentBuildJob(RepoConfig repoConfig, Component component) {
         DefaultComponentJobContext context = new DefaultComponentJobContext(repoConfig, component);
         Map<String, Object> job = setupJob(context);
-        componentJobs.put(getComponentBuildJobId(component.getName()), job);
+        jobs.put(getComponentBuildJobId(component.getName()), job);
         if (context.isBuildJob()) {
-            buildJobNames.add(getComponentBuildJobId(context.getJobName()));
+            buildJobNamesByComponent.put(component.getName(), getComponentBuildJobId(context.getJobName()));
         }
 
     }
 
-    private void setupComponentBuildJobsFromFile(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
+    private void setupComponentBuildJobsFromFile(RepoConfig repoConfig, Component component, Path componentJobsFile) throws Exception {
         ComponentJobsConfig config = ComponentJobsConfigParser.create(componentJobsFile).parse();
         if (component.getMavenOpts() != null) {
             throw new IllegalStateException(component.getName() +
@@ -290,34 +302,42 @@ public class GitHubActionGenerator {
                     ". Remove mavenOpts and configure the job in the compponent job file.");
         }
         componentJobsConfigs.put(component.getName(), config);
-        List<JobConfig> jobConfigs = config.getJobs();
-        for (JobConfig jobConfig : jobConfigs) {
-            boolean buildJob = config.getBuildJob().equals(jobConfig.getName());
-            if (!component.isDebug() || config.getBuildJob().equals(jobConfig.getName())) {
-                setupComponentBuildJobFromConfig(componentJobs, repoConfig, component, jobConfig, buildJob);
+        List<ComponentJobConfig> componentJobConfigs = config.getJobs();
+        for (ComponentJobConfig componentJobConfig : componentJobConfigs) {
+            boolean buildJob = config.getBuildJob().equals(componentJobConfig.getName());
+            if (!component.isDebug() || buildJob) {
+                setupComponentBuildJobFromConfig(repoConfig, component, config.getBuildJob(), componentJobConfig);
             }
+        }
+
+        if (config.getEndJob() != null) {
+            ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, config.getBuildJob(), config.getEndJob());
+            Map<String, Object> job = setupJob(context);
+            jobs.put((String)job.get("name"), job);
         }
     }
 
-    private void setupComponentBuildJobFromConfig(Map<String, Object> componentJobs, RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildStep) {
-        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, jobConfig, buildStep);
+    private void setupComponentBuildJobFromConfig(RepoConfig repoConfig, Component component, String buildJobName, BaseComponentJobConfig componentJobConfig) {
+        ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, buildJobName, componentJobConfig);
         Map<String, Object> job = setupJob(context);
-        componentJobs.put(jobConfig.getName(), job);
+        jobs.put(componentJobConfig.getName(), job);
         if (context.isBuildJob()) {
-            buildJobNames.add(context.getJobName());
+            buildJobNamesByComponent.put(component.getName(), context.getJobName());
         }
     }
 
     private Map<String, Object> setupJob(ComponentJobContext context) {
         Component component = context.getComponent();
 
-        final String myVersionEnvVarName = getVersionEnvVarName(component.getName());
+        final String myVersionEnvVarName = getInternalVersionEnvVarName(component.getName());
 
         String jobName = context.getJobName();
 
         Map<String, Object> job = new LinkedHashMap<>();
         job.put("name", jobName);
         job.put("runs-on", "ubuntu-latest");
+
+        context.addIfClause(job);
 
         Map<String, String> env = context.createEnv();
         if (env.size() > 0) {
@@ -358,7 +378,7 @@ public class GitHubActionGenerator {
                         .setVersion(context.getJavaVersion())
                         .build());
 
-        if (needs.size() > 0) {
+        if (context.hasDependencies()) {
             // Get the maven artifact backups
             steps.add(
                     new GitCommandBuilder()
@@ -368,8 +388,8 @@ public class GitHubActionGenerator {
 
             steps.add(
                     new RunMultiRepoCiToolCommandBuilder()
-                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                            .setCommand(OverlayBackedUpMavenArtifacts.OVERLAY_BACKED_UP_MAVEN_ARTIFACTS)
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                            .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
                             .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
                             .build());
         }
@@ -377,7 +397,7 @@ public class GitHubActionGenerator {
         if (context.isBuildJob()) {
             steps.add(
                     new GrabProjectVersionBuilder()
-                            .setEnvVarName(getVersionEnvVarName(component.getName()))
+                            .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
                             .build());
             steps.add(
                 new GitRevParseIntoOutputVariableBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
@@ -387,9 +407,10 @@ public class GitHubActionGenerator {
         // Make sure that localhost maps to ::1 in the hosts file
         steps.add(new Ipv6LocalhostBuilder().build());
 
-        steps.addAll(context.createBuildJobs());
+        steps.addAll(context.createBuildSteps());
 
         if (context.getComponent().isDebug()) {
+            hasDebugComponents = true;
             steps.add(new TmateDebugBuilder().build());
         }
 
@@ -402,8 +423,8 @@ public class GitHubActionGenerator {
         final String jobLogsDir = projectLogsDir + "/" + jobName;
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                        .setCommand(CopyLogArtifacts.COPY_LOGS)
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                        .setCommand(CopyLogArtifacts.Command.NAME)
                         .addArgs(".", jobLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
                         .build());
@@ -434,8 +455,8 @@ public class GitHubActionGenerator {
         // Back up the parts of the maven repo we built
         steps.add(
                 new RunMultiRepoCiToolCommandBuilder()
-                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/multi-repo-ci-tool.jar")
-                        .setCommand(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS)
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                        .setCommand(BackupMavenArtifacts.Command.NAME)
                         .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
                         .setIfCondition(IfCondition.SUCCESS)
                         .build());
@@ -444,7 +465,7 @@ public class GitHubActionGenerator {
         steps.add(
                 new GitCommandBuilder()
                         .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
-                        .setUserAndEmail("CI Action", "ci@example.com")
+                        .setStandardUserAndEmail()
                         .addFiles("-A")
                         .setCommitMessage("Back up the maven artifacts created by " + context.getComponent().getName())
                         .setPush()
@@ -452,13 +473,13 @@ public class GitHubActionGenerator {
                         .build());
     }
 
-    private Map<String, Object> setupReportingJob(Set<String> allJobNames, RepoConfig repoConfig) {
+    private void setupReportingJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
 
         // Let the Job builder do the proper formatting of the message
         // It currently uses the github-script action which uses JavaScript
         // so it is quite 'specialised'
         Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
-        for (String buildJobName : buildJobNames) {
+        for (String buildJobName : buildJobNamesByComponent.values()) {
             String hash = String.format("needs.%s.outputs.%s",
                     buildJobName,
                     REV_PARSE_STEP_OUTPUT);
@@ -466,21 +487,91 @@ public class GitHubActionGenerator {
         }
 
         if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
-            IssueStatusReportJobBuilder jobBuilder = new IssueStatusReportJobBuilder(issueNumber);
-            jobBuilder.setNeeds(allJobNames);
+            String jobName = "ob-ci-status";
+            IssueStatusReportJobBuilder jobBuilder =
+                    new IssueStatusReportJobBuilder(jobName, issueNumber);
+            jobBuilder.setNeeds(jobs.keySet());
             jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
             jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
             jobBuilder.setSuccessMessage("The job passed!");
             jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
             jobBuilder.setFailureMessage("The job failed");
-            return jobBuilder.build();
+            jobs.put(jobName, jobBuilder.build());
         }
-        return Collections.emptyMap();
+    }
+
+    private void setupWorkflowEndJob(RepoConfig repoConfig) {
+        setupEndJob(repoConfig.getEndJob(), repoConfig, "ob-ci-end-job", new ArrayList<>(jobs.keySet()));
+    }
+
+    private void setupEndJob(Map<String, Object> job, RepoConfig repoConfig, String jobName, List<String> needs) {
+        if (job == null) {
+            return;
+        }
+        // Copy the job so that the ordering is better
+        Map<String, Object> jobCopy = new LinkedHashMap<>();
+        jobCopy.put("name", jobName);
+        jobCopy.put("runs-on", "ubuntu-latest");
+        jobCopy.put("needs", needs);
+
+        // RepoConfigParser has ensured there is always an env entry
+        Map<String, String> env = new HashMap<>((Map<String, String>)job.get("env"));
+        jobCopy.put("env", env);
+        addComponentVersionEnvVars(env);
+
+        env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
+
+        for (String key : job.keySet()) {
+            if (!key.equals("env") && !key.equals("steps")) {
+                jobCopy.put(key, job.get(key));
+            }
+        }
+
+        List<Object> steps = new ArrayList();
+
+        // Add boiler plate steps
+
+        steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+
+        steps.add(new CheckoutBuilder()
+                .setBranch(branchName)
+                .build());
+        steps.add(
+                new SetupJavaBuilder()
+                        .setVersion(
+                                repoConfig.getJavaVersion() != null ? repoConfig.getJavaVersion() : DEFAULT_JAVA_VERSION)
+                        .build());
+        steps.add(
+                new GitCommandBuilder()
+                        .setRebase()
+                        .build());
+        steps.add(
+                Collections.singletonMap(
+                        "run",
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
+
+        steps.add(new Ipv6LocalhostBuilder().build());
+
+        steps.add(
+                new RunMultiRepoCiToolCommandBuilder()
+                        .setJar(TOOL_JAR_NAME)
+                        .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
+                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .build());
+
+
+        // RepoConfigParser has validated the job format already
+        List<Object> jobSteps = (List<Object>)job.get("steps");
+        steps.addAll(jobSteps);
+        jobCopy.put("steps", steps);
+
+        jobs.put(jobName, jobCopy);
     }
 
     private void setupCleanupJob(TriggerConfig triggerConfig) {
         Map<String, Object> job = new LinkedHashMap<>();
-        job.put("name", "cleanup-" + triggerConfig.getName().replace(' ', '-'));
+        String name = "ob-ci-cleanup";
+        job.put("name", name);
         job.put("runs-on", "ubuntu-latest");
         job.put("needs", new ArrayList<>(jobs.keySet()));
         job.put("if", IfCondition.ALWAYS.getValue());
@@ -498,15 +589,33 @@ public class GitHubActionGenerator {
                         .setDeleteRemoteBranch()
                         .build());
 
-        jobs.put("cleanup-job", job);
+        jobs.put(name, job);
+    }
+
+    private void addComponentVersionEnvVars(Map<String, String> env) {
+        for (Map.Entry<String, String> entry : buildJobNamesByComponent.entrySet()) {
+            String componentName = entry.getKey();
+            String buildJobName = entry.getValue();
+            env.put(getEndUserVersionEnvVarName(componentName), "${{ " + formatOutputVersionVariableName(buildJobName, componentName) + "}}");
+        }
     }
 
     private String getComponentBuildJobId(String name) {
         return name + "-build";
     }
 
-    private String getVersionEnvVarName(String name) {
+    private String getInternalVersionEnvVarName(String name) {
         return "version_" + name.replace("-", "_");
+    }
+
+    private String getEndUserVersionEnvVarName(String name) {
+        return "OB_" + getInternalVersionEnvVarName(name).toUpperCase();
+    }
+
+    private String formatOutputVersionVariableName(String buildJobName, String componentName) {
+        return String.format("needs.%s.outputs.%s",
+                buildJobName,
+                getInternalVersionEnvVarName(componentName));
     }
 
     private abstract class ComponentJobContext {
@@ -551,31 +660,49 @@ public class GitHubActionGenerator {
 
         protected List<String> createNeeds() {
             List<String> needs = new ArrayList<>();
+            if (isBuildJob()) {
+                needs.add(CANCEL_PREVIOUS_RUNS_JOB_NAME);
+            }
             for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
                 needs.add(depCtx.buildJobName);
             }
             return needs;
         }
 
-        abstract List<Map<String, Object>> createBuildJobs();
+        public boolean hasDependencies() {
+            // Build jobs get the cancel previous runs job added
+            int limit = isBuildJob() ? 1 : 0;
+            return createNeeds().size() > limit;
+        }
+
+        abstract List<Map<String, Object>> createBuildSteps();
 
         protected String getDependencyVersionMavenProperties() {
             StringBuilder sb = new StringBuilder();
             for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
-                sb.append(" ");
-
-                sb.append("-D" + depCtx.dependency.getProperty() + "=\"${{" + depCtx.versionVarName + "}}\"");
+                if (sb.length() > 0) {
+                    sb.append(" ");
+                }
+                String versionVarName = getEndUserVersionEnvVarName(depCtx.dependency.getName());
+                sb.append("-D" + depCtx.dependency.getProperty() + "=${" + versionVarName + "}");
             }
             return sb.toString();
         }
 
         public Map<String, String> createEnv() {
-            return Collections.emptyMap();
+            Map<String, String> env = new HashMap<>();
+            addComponentVersionEnvVars(env);
+            return env;
         }
 
         protected boolean isBuildJob() {
             return true;
         }
+
+        public void addIfClause(Map<String, Object> job) {
+            // Default is to do nothing
+        }
+
     }
 
     private class DefaultComponentJobContext extends ComponentJobContext {
@@ -589,7 +716,7 @@ public class GitHubActionGenerator {
         }
 
         @Override
-        List<Map<String, Object>> createBuildJobs() {
+        List<Map<String, Object>> createBuildSteps() {
             return Collections.singletonList(
                     new MavenBuildBuilder()
                             .setOptions(getMavenOptions(component))
@@ -617,64 +744,132 @@ public class GitHubActionGenerator {
     }
 
     private class ConfiguredComponentJobContext extends ComponentJobContext {
-        private final JobConfig jobConfig;
-        private final boolean buildJob;
+        private final String buildJobName;
+        private final BaseComponentJobConfig componentJobConfig;
 
-        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, JobConfig jobConfig, boolean buildJob) {
+        public ConfiguredComponentJobContext(RepoConfig repoConfig, Component component, String buildJobName, BaseComponentJobConfig componentJobConfig) {
             super(repoConfig, component);
-            this.jobConfig = jobConfig;
-            this.buildJob = buildJob;
+            this.buildJobName = buildJobName;
+            this.componentJobConfig = componentJobConfig;
         }
 
         @Override
         public String getJobName() {
-            return jobConfig.getName();
+            return componentJobConfig.getName();
+        }
+
+        @Override
+        public void addIfClause(Map<String, Object> job) {
+            if (componentJobConfig.isEndJob()) {
+                String ifCondition = ((ComponentEndJobConfig) componentJobConfig).getIfCondition();
+                if (ifCondition != null) {
+                    job.put("if", ifCondition);
+                }
+            }
         }
 
         @Override
         protected List<String> createNeeds() {
             List<String> needs = super.createNeeds();
-            for (String need : jobConfig.getNeeds()) {
+            for (String need : componentJobConfig.getNeeds()) {
                 needs.add(need);
             }
             return needs;
         }
 
         @Override
-        List<Map<String, Object>> createBuildJobs() {
-            List<JobRunElementConfig> runElementConfigs = jobConfig.getRunElements();
-            Map<String, Object> build = new HashMap<>();
-            build.put("name", "Maven Build");
-            StringBuilder sb = new StringBuilder();
-            for (JobRunElementConfig cfg : runElementConfigs) {
-                if (cfg.getType() == JobRunElementConfig.Type.SHELL) {
-                    sb.append(cfg.getCommand());
-                    sb.append("\n");
-                } else {
-                    sb.append("mvn -B ");
-                    sb.append(cfg.getCommand());
-                    sb.append(" ");
-                    sb.append(getDependencyVersionMavenProperties());
-                    sb.append("\n");
-                }
+        List<Map<String, Object>> createBuildSteps() {
+            List<Map<String, Object>> steps = new ArrayList<>();
+
+            steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+
+            if (isBuildJob()) {
+                // Ensure the artifacts directory is there
+                // It will be available to later jobs via the pushed git branch
+                Map<String, Object> artifactsDir = new LinkedHashMap<>();
+                artifactsDir.put("name", "Ensure artifacts dir is there");
+                artifactsDir.put("run",
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
+                                "touch ${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}/.gitkeep\n");
+                steps.add(artifactsDir);
             }
-            build.put("run", sb.toString());
-            return Collections.singletonList(build);
+
+            // Merge any split files
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                            .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                            .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
+                            .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                            .build());
+
+
+            if (componentJobConfig.isEndJob()) {
+                steps.addAll(((ComponentEndJobConfig)componentJobConfig).getSteps());
+            } else {
+                List<JobRunElementConfig> runElementConfigs = ((ComponentJobConfig)componentJobConfig).getRunElements();
+                Map<String, Object> build = new HashMap<>();
+                build.put("name", "Maven Build");
+                StringBuilder sb = new StringBuilder();
+                for (JobRunElementConfig cfg : runElementConfigs) {
+                    if (cfg.getType() == JobRunElementConfig.Type.SHELL) {
+                        sb.append(cfg.getCommand());
+                        sb.append("\n");
+                    } else {
+                        sb.append("mvn -B ");
+                        sb.append(cfg.getCommand());
+                        sb.append(" ");
+                        sb.append(getDependencyVersionMavenProperties());
+                        sb.append("\n");
+                    }
+                }
+                build.put("run", sb.toString());
+                steps.add(build);
+            }
+
+            // Make sure we split any large files that people might have copied into the artifacts directory
+            steps.add(
+                    new RunMultiRepoCiToolCommandBuilder()
+                        .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
+                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
+                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .build());
+
+            if (!isBuildJob()) {
+                // For build jobs this will be handled by the main boiler plate steps
+                steps.add(
+                        new GitCommandBuilder()
+                                .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
+                                .setStandardUserAndEmail()
+                                .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                                .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + getJobName())
+                                .setPush()
+                                .setIfCondition(IfCondition.SUCCESS)
+                                .build());
+
+            }
+            return steps;
         }
 
         @Override
         public Map<String, String> createEnv() {
             Map<String, String> env = new HashMap<>();
             env.putAll(super.createEnv());
-            env.putAll(jobConfig.getJobEnv());
+            env.putAll(componentJobConfig.getJobEnv());
+            env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
+            if (!isBuildJob()) {
+                String var = "${{ " + formatOutputVersionVariableName(buildJobName, component.getName() + " }}");
+                env.put(OB_PROJECT_VERSION_VAR_NAME, var);
+            }
+            addComponentVersionEnvVars(env);
+            env.put(OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME, getDependencyVersionMavenProperties());
             return env;
         }
 
         public String getJavaVersion() {
             String javaVersion = super.getJavaVersion();
             // Let the user override the java version specified in the job config
-            if (jobConfig.getJavaVersion() != null) {
-                javaVersion = jobConfig.getJavaVersion();
+            if (componentJobConfig.getJavaVersion() != null) {
+                javaVersion = componentJobConfig.getJavaVersion();
             }
             if (component.getJavaVersion() != null) {
                 javaVersion = component.getJavaVersion();
@@ -684,22 +879,31 @@ public class GitHubActionGenerator {
 
         @Override
         protected boolean isBuildJob() {
-            return buildJob;
+            return componentJobConfig.isBuildJob();
         }
     }
 
     private class ComponentDependencyContext {
         final Dependency dependency;
         final String buildJobName;
-        final String versionVarName;
 
         public ComponentDependencyContext(Dependency dependency, String buildJobName) {
             this.dependency = dependency;
             this.buildJobName = buildJobName;
-            this.versionVarName =
-                    String.format("needs.%s.outputs.%s",
-                            buildJobName,
-                            getVersionEnvVarName(dependency.getName()));
+        }
+    }
+
+    public static class Command implements ToolCommand {
+        public static final String NAME = "generate-workflow";
+
+        @Override
+        public String getDescription() {
+            return "Generates a GitHub workflow YAML from the trigger issue input";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            generate(args);
         }
     }
 }

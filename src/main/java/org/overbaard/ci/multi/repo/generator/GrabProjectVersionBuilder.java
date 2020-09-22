@@ -25,6 +25,10 @@ public class GrabProjectVersionBuilder {
             bash.append("echo \"Saving version to env var: \\$" + envVarName + "\"\n");
             bash.append(String.format("echo \"::set-output name=%s::${TMP}\"\n", envVarName));
         }
+        // Make the project version available to other steps in the workflow
+        // it is a convenience when there is a component job template so that people know where to copy files
+        // and so on
+        bash.append(String.format("echo \"::set-env name=%s::${TMP}\"\n", GitHubActionGenerator.OB_PROJECT_VERSION_VAR_NAME));
 
         Map<String, Object> cmd = new LinkedHashMap<>();
         cmd.put("name", "Grab project version");

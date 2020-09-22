@@ -23,9 +23,9 @@ public class GitCommandBuilder {
         return this;
     }
 
-    GitCommandBuilder setUserAndEmail(String gitUser, String gitEmail) {
-        this.gitUser = gitUser;
-        this.gitEmail = gitEmail;
+    GitCommandBuilder setStandardUserAndEmail() {
+        this.gitUser = "CI Action";
+        this.gitEmail = "ci@example.com";
         return this;
     }
 
@@ -70,6 +70,9 @@ public class GitCommandBuilder {
         if (workingDirectory != null) {
             command.put("working-directory", workingDirectory);
         }
+        if (ifCondition != null) {
+            command.put("if", ifCondition.getValue());
+        }
 
         StringBuilder run = new StringBuilder();
         if (gitUser != null) {
@@ -95,7 +98,8 @@ public class GitCommandBuilder {
             run.append("\n");
         }
         if (commitMessage != null) {
-            run.append("git commit -m \"" + commitMessage + "\"\n");
+            run.append("branch_status=$(git status --porcelain)\n");
+            run.append("[[ ! -z \"${branch_status}}\" ]] && git commit -m \"" + commitMessage + "\" || echo \"No changes\"\n");
         }
 
         if (push || rebase) {
@@ -116,9 +120,6 @@ public class GitCommandBuilder {
 
         command.put("run", run.toString());
 
-        if (ifCondition != null) {
-            command.put("if", ifCondition.getValue());
-        }
 
         return command;
     }

@@ -42,6 +42,7 @@ public class RepoConfigParser extends BaseParser {
         Object envInput = input.remove("env");
         Object javaVersionInput = input.remove("java-version");
         Object issueReportingInput = input.remove("issue-reporting");
+        Object endJobInput = input.remove("end-job");
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
@@ -101,7 +102,8 @@ public class RepoConfigParser extends BaseParser {
             }
         }
 
-        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel);
-    }
+        Map<String, Object> endJob = preParseEndJob(endJobInput);
 
+        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel, endJob);
+    }
 }

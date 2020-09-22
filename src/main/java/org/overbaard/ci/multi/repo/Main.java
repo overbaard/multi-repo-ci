@@ -7,14 +7,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.overbaard.ci.multi.repo.directory.utils.SplitLargeFilesInDirectory;
 import org.overbaard.ci.multi.repo.generator.GitHubActionGenerator;
-import org.overbaard.ci.multi.repo.generator.GitHubActionGeneratorToolCommand;
 import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifacts;
-import org.overbaard.ci.multi.repo.log.copy.CopyLogArtifactsToolCommand;
-import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.BackupMavenArtifactsToolCommand;
-import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifacts;
-import org.overbaard.ci.multi.repo.maven.backup.OverlayBackedUpMavenArtifactsToolCommand;
+import org.overbaard.ci.multi.repo.directory.utils.BackupMavenArtifacts;
+import org.overbaard.ci.multi.repo.directory.utils.OverlayBackedUpMavenArtifacts;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -24,10 +21,12 @@ public class Main {
     private static final Map<String, ToolCommand> COMMANDS;
     static {
         Map<String, ToolCommand> map = new LinkedHashMap<>();
-        map.put(GitHubActionGenerator.GENERATE_WORKFLOW, new GitHubActionGeneratorToolCommand());
-        map.put(CopyLogArtifacts.COPY_LOGS, new CopyLogArtifactsToolCommand());
-        map.put(BackupMavenArtifacts.BACKUP_MAVEN_ARTIFACTS, new BackupMavenArtifactsToolCommand());
-        map.put(OverlayBackedUpMavenArtifacts.OVERLAY_BACKED_UP_MAVEN_ARTIFACTS, new OverlayBackedUpMavenArtifactsToolCommand());
+        map.put(GitHubActionGenerator.Command.NAME, new GitHubActionGenerator.Command());
+        map.put(CopyLogArtifacts.Command.NAME, new CopyLogArtifacts.Command());
+        map.put(BackupMavenArtifacts.Command.NAME, new BackupMavenArtifacts.Command());
+        map.put(OverlayBackedUpMavenArtifacts.Command.NAME, new OverlayBackedUpMavenArtifacts.Command());
+        map.put(SplitLargeFilesInDirectory.SplitCommand.NAME, new SplitLargeFilesInDirectory.SplitCommand());
+        map.put(SplitLargeFilesInDirectory.MergeCommand.NAME, new SplitLargeFilesInDirectory.MergeCommand());
         COMMANDS = Collections.unmodifiableMap(map);
     }
 

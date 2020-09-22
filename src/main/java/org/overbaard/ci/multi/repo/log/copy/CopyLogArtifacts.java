@@ -10,9 +10,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.List;
 
-public class CopyLogArtifacts {
+import org.overbaard.ci.multi.repo.ToolCommand;
 
-    public static final String COPY_LOGS = "copy-logs";
+public class CopyLogArtifacts {
 
     private final Path inputPath;
     private final Path outputPath;
@@ -84,5 +84,22 @@ public class CopyLogArtifacts {
         Files.createDirectories(target.getParent());
         System.out.println("Copying " + path + " to " + target);
         Files.copy(path, target);
+    }
+
+    /**
+     * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
+     */
+    public static class Command implements ToolCommand {
+        public static final String NAME = "copy-logs";
+
+        @Override
+        public String getDescription() {
+            return "Copies across the log files to the artifacts";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            copy(args);
+        }
     }
 }

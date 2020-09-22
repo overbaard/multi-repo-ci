@@ -1,6 +1,4 @@
-package org.overbaard.ci.multi.repo.maven.backup;
-
-import static org.overbaard.ci.multi.repo.maven.backup.CopyDirectoryVisitor.LargeFileAction.SPLIT;
+package org.overbaard.ci.multi.repo.directory.utils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -23,6 +21,7 @@ import javax.xml.stream.XMLStreamReader;
 
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.overbaard.ci.multi.repo.ToolCommand;
 
 /**
  * Backs up the maven artifacts created by a maven project
@@ -31,8 +30,6 @@ import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
  */
 public class BackupMavenArtifacts {
     private static final XMLInputFactory XML_INPUT_FACTORY = XMLInputFactory.newInstance();
-
-    public static final String BACKUP_MAVEN_ARTIFACTS = "backup-maven-artifacts";
 
     private final List<ProjectArtifactInfo> artifactInfos = new ArrayList<>();
 
@@ -48,7 +45,7 @@ public class BackupMavenArtifacts {
 
     public static void backup(String[] args) throws Exception {
         if (args.length != 3) {
-            throw new IllegalStateException("Need the following three args: <root pom path> <maven repo root> <backupLocation>");
+            throw new IllegalStateException("Need the following args: <root pom path> <maven repo root> <backupLocation>");
         }
 
         Path rootPom = Paths.get(args[0]).toAbsolutePath();
@@ -143,6 +140,20 @@ public class BackupMavenArtifacts {
         }
 
         Files.createDirectories(targetDir);
-        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(SPLIT, sourceDir, targetDir));
+        Files.walkFileTree(sourceDir, new CopyDirectoryVisitor(LargeFileAction.SPLIT, sourceDir, targetDir));
+    }
+
+    public static class Command implements ToolCommand {
+        public static final String NAME = "backup-maven-artifacts";
+
+        @Override
+        public String getDescription() {
+            return "Backs up the maven artifacts produced by this build";
+        }
+
+        @Override
+        public void invoke(String[] args) throws Exception {
+            backup(args);
+        }
     }
 }
