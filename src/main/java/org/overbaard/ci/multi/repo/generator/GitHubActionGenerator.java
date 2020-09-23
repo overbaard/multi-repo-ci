@@ -677,20 +677,26 @@ public class GitHubActionGenerator {
 
         abstract List<Map<String, Object>> createBuildSteps();
 
-        protected String getDependencyVersionMavenProperties() {
+        protected String getDependencyVersionMavenProperties(boolean useOutputVars) {
             StringBuilder sb = new StringBuilder();
             for (ComponentDependencyContext depCtx : dependencyContexts.values()) {
                 if (sb.length() > 0) {
                     sb.append(" ");
                 }
-                String versionVarName = getEndUserVersionEnvVarName(depCtx.dependency.getName());
-                sb.append("-D" + depCtx.dependency.getProperty() + "=${" + versionVarName + "}");
+                final String versionVarName;
+                if (useOutputVars) {
+                    versionVarName = "${{" + depCtx.versionOutputVarName + "}}";
+                } else {
+                    versionVarName = "${" + getEndUserVersionEnvVarName(depCtx.dependency.getName()) + "}";
+                }
+
+                sb.append("-D" + depCtx.dependency.getProperty() + "=" + versionVarName);
             }
             return sb.toString();
         }
 
         public Map<String, String> createEnv() {
-            Map<String, String> env = new HashMap<>();
+            Map<String, String> env = new LinkedHashMap<>();
             addComponentVersionEnvVars(env);
             return env;
         }
@@ -729,7 +735,7 @@ public class GitHubActionGenerator {
                 sb.append(component.getMavenOpts());
                 sb.append(" ");
             }
-            sb.append(getDependencyVersionMavenProperties());
+            sb.append(getDependencyVersionMavenProperties(false));
             return sb.toString();
         }
 
@@ -818,7 +824,7 @@ public class GitHubActionGenerator {
                         sb.append("mvn -B ");
                         sb.append(cfg.getCommand());
                         sb.append(" ");
-                        sb.append(getDependencyVersionMavenProperties());
+                        sb.append(getDependencyVersionMavenProperties(false));
                         sb.append("\n");
                     }
                 }
@@ -852,7 +858,7 @@ public class GitHubActionGenerator {
 
         @Override
         public Map<String, String> createEnv() {
-            Map<String, String> env = new HashMap<>();
+            Map<String, String> env = new LinkedHashMap<>();
             env.putAll(super.createEnv());
             env.putAll(componentJobConfig.getJobEnv());
             env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
@@ -861,7 +867,7 @@ public class GitHubActionGenerator {
                 env.put(OB_PROJECT_VERSION_VAR_NAME, var);
             }
             addComponentVersionEnvVars(env);
-            env.put(OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME, getDependencyVersionMavenProperties());
+            env.put(OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME, getDependencyVersionMavenProperties(true));
             return env;
         }
 
@@ -886,10 +892,13 @@ public class GitHubActionGenerator {
     private class ComponentDependencyContext {
         final Dependency dependency;
         final String buildJobName;
+        final String versionOutputVarName;
+
 
         public ComponentDependencyContext(Dependency dependency, String buildJobName) {
             this.dependency = dependency;
             this.buildJobName = buildJobName;
+            this.versionOutputVarName = formatOutputVersionVariableName(buildJobName, dependency.getName());
         }
     }
 
