@@ -199,7 +199,7 @@ public class GitHubActionGenerator {
         setupWorkFlowHeaderSection(repoConfig, triggerConfig);
         setupJobs(repoConfig, triggerConfig);
 
-        if (hasDebugComponents) {
+        if (!hasDebugComponents) {
             setupWorkflowEndJob(repoConfig);
             setupReportingJob(repoConfig, triggerConfig);
             setupCleanupJob(triggerConfig);
