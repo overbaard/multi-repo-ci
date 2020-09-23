@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class Ipv6LocalhostBuilder {
+public class Ipv6LocalhostStepBuilder {
 
     //
     Map<String, Object> build() {

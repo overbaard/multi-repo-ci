@@ -6,22 +6,22 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-class CheckoutBuilder {
+class CheckoutStepBuilder {
     private String repo;
     private String branch;
     private String path;
 
-    CheckoutBuilder setRepo(String org, String repo) {
+    CheckoutStepBuilder setRepo(String org, String repo) {
         this.repo = org + "/" + repo;
         return this;
     }
 
-    CheckoutBuilder setBranch(String branch) {
+    CheckoutStepBuilder setBranch(String branch) {
         this.branch = branch;
         return this;
     }
 
-    CheckoutBuilder setPath(String path) {
+    CheckoutStepBuilder setPath(String path) {
         this.path = path;
         return this;
     }

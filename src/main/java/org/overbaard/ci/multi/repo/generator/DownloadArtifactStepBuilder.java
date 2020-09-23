@@ -3,13 +3,13 @@ package org.overbaard.ci.multi.repo.generator;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class DownloadArtifactBuilder extends AbstractArtifactBuilder<DownloadArtifactBuilder> {
-    public DownloadArtifactBuilder() {
+public class DownloadArtifactStepBuilder extends AbstractArtifactStepBuilder<DownloadArtifactStepBuilder> {
+    public DownloadArtifactStepBuilder() {
         super("actions/download-artifact@v1");
     }
 
     @Override
-    DownloadArtifactBuilder getThis() {
+    DownloadArtifactStepBuilder getThis() {
         return this;
     }
 }

@@ -3,14 +3,14 @@ package org.overbaard.ci.multi.repo.generator;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class UploadArtifactBuilder extends AbstractArtifactBuilder<UploadArtifactBuilder> {
+public class UploadArtifactStepBuilder extends AbstractArtifactStepBuilder<UploadArtifactStepBuilder> {
 
-    UploadArtifactBuilder() {
+    UploadArtifactStepBuilder() {
         super("actions/upload-artifact@v2");
     }
 
     @Override
-    UploadArtifactBuilder getThis() {
+    UploadArtifactStepBuilder getThis() {
         return this;
     }
 }

@@ -359,35 +359,35 @@ public class GitHubActionGenerator {
         List<Object> steps = new ArrayList<>();
         // Get the repo of the component we want to build
         steps.add(
-                new CheckoutBuilder()
+                new CheckoutStepBuilder()
                         .setRepo(component.getOrg(), component.getName())
                         .setBranch(component.getBranch())
                         .build());
         // Get this repo so that we have the tooling contained in this project. We will run various of these later.
         // This is also used for sharing files between jobs
         steps.add(
-                new CheckoutBuilder()
+                new CheckoutStepBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
                         .setBranch(branchName)
                         .build());
         steps.add(
-                new CacheMavenRepoBuilder()
+                new CacheMavenRepoStepBuilder()
                         .build());
         steps.add(
-                new SetupJavaBuilder()
+                new SetupJavaStepBuilder()
                         .setVersion(context.getJavaVersion())
                         .build());
 
         if (context.hasDependencies()) {
             // Get the maven artifact backups
             steps.add(
-                    new GitCommandBuilder()
+                    new GitCommandStepBuilder()
                             .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
                             .setRebase()
                             .build());
 
             steps.add(
-                    new RunMultiRepoCiToolCommandBuilder()
+                    new RunMultiRepoCiToolCommandStepBuilder()
                             .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                             .setCommand(OverlayBackedUpMavenArtifacts.Command.NAME)
                             .addArgs(MAVEN_REPO.toString(), MAVEN_REPO_BACKUPS_ROOT.toString())
@@ -396,22 +396,22 @@ public class GitHubActionGenerator {
 
         if (context.isBuildJob()) {
             steps.add(
-                    new GrabProjectVersionBuilder()
+                    new GrabProjectVersionStepBuilder()
                             .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
                             .build());
             steps.add(
-                new GitRevParseIntoOutputVariableBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
+                new GitRevParseIntoOutputVariableStepBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
                     .build());
         }
 
         // Make sure that localhost maps to ::1 in the hosts file
-        steps.add(new Ipv6LocalhostBuilder().build());
+        steps.add(new Ipv6LocalhostStepBuilder().build());
 
         steps.addAll(context.createBuildSteps());
 
         if (context.getComponent().isDebug()) {
             hasDebugComponents = true;
-            steps.add(new TmateDebugBuilder().build());
+            steps.add(new TmateDebugStepBuilder().build());
         }
 
         if (context.isBuildJob()) {
@@ -422,21 +422,21 @@ public class GitHubActionGenerator {
         final String projectLogsDir = ".project-build-logs";
         final String jobLogsDir = projectLogsDir + "/" + jobName;
         steps.add(
-                new RunMultiRepoCiToolCommandBuilder()
+                new RunMultiRepoCiToolCommandStepBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                         .setCommand(CopyLogArtifacts.Command.NAME)
                         .addArgs(".", jobLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
                         .build());
         steps.add(
-                new ZipFolderBuilder()
+                new ZipFolderStepBuilder()
                         .setIfCondition(IfCondition.FAILURE)
                         .setContainingDirectory(projectLogsDir)
                         .setChildDirectoryToZip(jobName)
                         .removeDirectory()
                         .build());
         steps.add(
-                new UploadArtifactBuilder()
+                new UploadArtifactStepBuilder()
                         .setName(jobLogsArtifactName)
                         .setPath(projectLogsDir)
                         .setIfCondition(IfCondition.FAILURE)
@@ -454,7 +454,7 @@ public class GitHubActionGenerator {
 
         // Back up the parts of the maven repo we built
         steps.add(
-                new RunMultiRepoCiToolCommandBuilder()
+                new RunMultiRepoCiToolCommandStepBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                         .setCommand(BackupMavenArtifacts.Command.NAME)
                         .addArgs(rootPom.toAbsolutePath().toString(), MAVEN_REPO.toString(), backupPath.toAbsolutePath().toString())
@@ -463,7 +463,7 @@ public class GitHubActionGenerator {
 
         // Commit the changes and push
         steps.add(
-                new GitCommandBuilder()
+                new GitCommandStepBuilder()
                         .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
                         .setStandardUserAndEmail()
                         .addFiles("-A")
@@ -531,18 +531,18 @@ public class GitHubActionGenerator {
 
         // Add boiler plate steps
 
-        steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+        steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
 
-        steps.add(new CheckoutBuilder()
+        steps.add(new CheckoutStepBuilder()
                 .setBranch(branchName)
                 .build());
         steps.add(
-                new SetupJavaBuilder()
+                new SetupJavaStepBuilder()
                         .setVersion(
                                 repoConfig.getJavaVersion() != null ? repoConfig.getJavaVersion() : DEFAULT_JAVA_VERSION)
                         .build());
         steps.add(
-                new GitCommandBuilder()
+                new GitCommandStepBuilder()
                         .setRebase()
                         .build());
         steps.add(
@@ -550,10 +550,10 @@ public class GitHubActionGenerator {
                         "run",
                         BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
 
-        steps.add(new Ipv6LocalhostBuilder().build());
+        steps.add(new Ipv6LocalhostStepBuilder().build());
 
         steps.add(
-                new RunMultiRepoCiToolCommandBuilder()
+                new RunMultiRepoCiToolCommandStepBuilder()
                         .setJar(TOOL_JAR_NAME)
                         .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
                         .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
@@ -579,12 +579,12 @@ public class GitHubActionGenerator {
         job.put("steps", steps);
 
         steps.add(
-                new CheckoutBuilder()
+                new CheckoutStepBuilder()
                         .setPath(CI_TOOLS_CHECKOUT_FOLDER)
                         .setBranch(branchName)
                         .build());
         steps.add(
-                new GitCommandBuilder()
+                new GitCommandStepBuilder()
                         .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
                         .setDeleteRemoteBranch()
                         .build());
@@ -724,7 +724,7 @@ public class GitHubActionGenerator {
         @Override
         List<Map<String, Object>> createBuildSteps() {
             return Collections.singletonList(
-                    new MavenBuildBuilder()
+                    new MavenBuildStepBuilder()
                             .setOptions(getMavenOptions(component))
                             .build());
         }
@@ -787,7 +787,7 @@ public class GitHubActionGenerator {
         List<Map<String, Object>> createBuildSteps() {
             List<Map<String, Object>> steps = new ArrayList<>();
 
-            steps.add(new AbsolutePathVariableBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+            steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
 
             if (isBuildJob()) {
                 // Ensure the artifacts directory is there
@@ -802,7 +802,7 @@ public class GitHubActionGenerator {
 
             // Merge any split files
             steps.add(
-                    new RunMultiRepoCiToolCommandBuilder()
+                    new RunMultiRepoCiToolCommandStepBuilder()
                             .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                             .setCommand(SplitLargeFilesInDirectory.MergeCommand.NAME)
                             .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
@@ -834,7 +834,7 @@ public class GitHubActionGenerator {
 
             // Make sure we split any large files that people might have copied into the artifacts directory
             steps.add(
-                    new RunMultiRepoCiToolCommandBuilder()
+                    new RunMultiRepoCiToolCommandStepBuilder()
                         .setJar(CI_TOOLS_CHECKOUT_FOLDER + "/" + TOOL_JAR_NAME)
                         .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
                         .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
@@ -843,7 +843,7 @@ public class GitHubActionGenerator {
             if (!isBuildJob()) {
                 // For build jobs this will be handled by the main boiler plate steps
                 steps.add(
-                        new GitCommandBuilder()
+                        new GitCommandStepBuilder()
                                 .setWorkingDirectory(CI_TOOLS_CHECKOUT_FOLDER)
                                 .setStandardUserAndEmail()
                                 .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")

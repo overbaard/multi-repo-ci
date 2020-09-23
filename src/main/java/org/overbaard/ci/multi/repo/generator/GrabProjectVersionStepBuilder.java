@@ -6,11 +6,11 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class GrabProjectVersionBuilder {
+public class GrabProjectVersionStepBuilder {
     private String envVarName;
 
 
-    public GrabProjectVersionBuilder setEnvVarName(String envVarName) {
+    public GrabProjectVersionStepBuilder setEnvVarName(String envVarName) {
         this.envVarName = envVarName;
         return this;
     }

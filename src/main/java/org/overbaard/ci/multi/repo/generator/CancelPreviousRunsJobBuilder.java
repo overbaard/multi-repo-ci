@@ -24,7 +24,7 @@ public class CancelPreviousRunsJobBuilder {
         List<Object> steps = new ArrayList<>();
         job.put("steps", steps);
 
-        steps.add(new CheckoutBuilder()
+        steps.add(new CheckoutStepBuilder()
                     .setBranch(branchName)
                     .build());
 

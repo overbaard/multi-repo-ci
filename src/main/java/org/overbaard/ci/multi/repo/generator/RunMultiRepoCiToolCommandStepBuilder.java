@@ -8,30 +8,30 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class RunMultiRepoCiToolCommandBuilder {
+public class RunMultiRepoCiToolCommandStepBuilder {
     private String jar;
     private List<String> args = new ArrayList<>();
     private IfCondition ifCondition;
     private String command;
 
-    public RunMultiRepoCiToolCommandBuilder setJar(String jar) {
+    public RunMultiRepoCiToolCommandStepBuilder setJar(String jar) {
         this.jar = jar;
         return this;
     }
 
-    RunMultiRepoCiToolCommandBuilder setCommand(String command) {
+    RunMultiRepoCiToolCommandStepBuilder setCommand(String command) {
         this.command = command;
         return this;
     }
 
-    public RunMultiRepoCiToolCommandBuilder addArgs(String...args) {
+    public RunMultiRepoCiToolCommandStepBuilder addArgs(String...args) {
         for (String arg : args) {
             this.args.add(arg);
         }
         return this;
     }
 
-    public RunMultiRepoCiToolCommandBuilder setIfCondition(IfCondition ifCondition) {
+    public RunMultiRepoCiToolCommandStepBuilder setIfCondition(IfCondition ifCondition) {
         this.ifCondition = ifCondition;
         return this;
     }

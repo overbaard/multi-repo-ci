@@ -7,10 +7,10 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class SetupJavaBuilder {
+public class SetupJavaStepBuilder {
     private String version;
 
-    public SetupJavaBuilder setVersion(String version) {
+    public SetupJavaStepBuilder setVersion(String version) {
         this.version = version;
         return this;
     }

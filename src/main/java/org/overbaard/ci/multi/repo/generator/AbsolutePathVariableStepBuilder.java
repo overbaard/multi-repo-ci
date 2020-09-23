@@ -6,10 +6,10 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class AbsolutePathVariableBuilder {
+public class AbsolutePathVariableStepBuilder {
     private final String variableName;
 
-    public AbsolutePathVariableBuilder(String variableName) {
+    public AbsolutePathVariableStepBuilder(String variableName) {
         this.variableName = variableName;
     }
 

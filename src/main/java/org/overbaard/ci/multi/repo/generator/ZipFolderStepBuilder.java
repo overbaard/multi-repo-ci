@@ -6,18 +6,18 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class ZipFolderBuilder {
+public class ZipFolderStepBuilder {
     private IfCondition ifCondition;
     private String childDirectory;
     private boolean removeDirectory;
     private String containingDirectory;
 
-    public ZipFolderBuilder setContainingDirectory(String containingDirectory) {
+    public ZipFolderStepBuilder setContainingDirectory(String containingDirectory) {
         this.containingDirectory = containingDirectory;
         return this;
     }
 
-    public ZipFolderBuilder setChildDirectoryToZip(String childDirectory) {
+    public ZipFolderStepBuilder setChildDirectoryToZip(String childDirectory) {
         if (childDirectory.contains("/")) {
             throw new IllegalStateException("Child directory name should not contain slashes. " +
                     "It should be a direct child of the containing directory");
@@ -26,12 +26,12 @@ public class ZipFolderBuilder {
         return this;
     }
 
-    public ZipFolderBuilder setIfCondition(IfCondition ifCondition) {
+    public ZipFolderStepBuilder setIfCondition(IfCondition ifCondition) {
         this.ifCondition = ifCondition;
         return this;
     }
 
-    public ZipFolderBuilder removeDirectory() {
+    public ZipFolderStepBuilder removeDirectory() {
         removeDirectory = true;
         return this;
     }

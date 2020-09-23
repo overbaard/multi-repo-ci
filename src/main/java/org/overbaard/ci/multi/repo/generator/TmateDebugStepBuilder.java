@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class TmateDebugBuilder {
+public class TmateDebugStepBuilder {
 
     Map<String, Object> build() {
         Map<String, Object> setup = new LinkedHashMap<>();

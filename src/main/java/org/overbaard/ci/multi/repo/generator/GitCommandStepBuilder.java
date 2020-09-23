@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class GitCommandBuilder {
+public class GitCommandStepBuilder {
     private String workingDirectory;
     private String gitUser;
     private String gitEmail;
@@ -18,48 +18,48 @@ public class GitCommandBuilder {
     private boolean rebase;
     private IfCondition ifCondition;
 
-    GitCommandBuilder setWorkingDirectory(String workingDirectory) {
+    GitCommandStepBuilder setWorkingDirectory(String workingDirectory) {
         this.workingDirectory = workingDirectory;
         return this;
     }
 
-    GitCommandBuilder setStandardUserAndEmail() {
+    GitCommandStepBuilder setStandardUserAndEmail() {
         this.gitUser = "CI Action";
         this.gitEmail = "ci@example.com";
         return this;
     }
 
-    GitCommandBuilder addFiles(String... addFiles) {
+    GitCommandStepBuilder addFiles(String... addFiles) {
         this.addFiles = addFiles;
         return this;
     }
 
-    GitCommandBuilder removeFiles(String... removeFiles) {
+    GitCommandStepBuilder removeFiles(String... removeFiles) {
         this.removeFiles = removeFiles;
         return this;
     }
 
-    GitCommandBuilder setCommitMessage(String commitMessage) {
+    GitCommandStepBuilder setCommitMessage(String commitMessage) {
         this.commitMessage = commitMessage;
         return this;
     }
 
-    GitCommandBuilder setRebase() {
+    GitCommandStepBuilder setRebase() {
         this.rebase = true;
         return this;
     }
 
-    GitCommandBuilder setPush() {
+    GitCommandStepBuilder setPush() {
         this.push = true;
         return this;
     }
 
-    public GitCommandBuilder setDeleteRemoteBranch() {
+    public GitCommandStepBuilder setDeleteRemoteBranch() {
         this.deleteRemoteBranch = true;
         return this;
     }
 
-    public GitCommandBuilder setIfCondition(IfCondition ifCondition) {
+    public GitCommandStepBuilder setIfCondition(IfCondition ifCondition) {
         this.ifCondition = ifCondition;
         return this;
     }

@@ -6,11 +6,11 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class GitRevParseIntoOutputVariableBuilder {
+public class GitRevParseIntoOutputVariableStepBuilder {
     private final String stepId;
     private final String envVarName;
 
-    GitRevParseIntoOutputVariableBuilder(String stepId, String envVarName) {
+    GitRevParseIntoOutputVariableStepBuilder(String stepId, String envVarName) {
         this.stepId = stepId;
         this.envVarName = envVarName;
     }

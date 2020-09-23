@@ -6,7 +6,7 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class CacheMavenRepoBuilder {
+public class CacheMavenRepoStepBuilder {
     Map<String, Object> build() {
         Map<String, Object> cache = new LinkedHashMap<>();
         cache.put("uses", "actions/cache@v1");

@@ -6,13 +6,13 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public abstract class AbstractArtifactBuilder<T> {
+public abstract class AbstractArtifactStepBuilder<T> {
     private final String action;
     private String name;
     private String path = ".";
     private IfCondition ifCondition;
 
-    public AbstractArtifactBuilder(String action) {
+    public AbstractArtifactStepBuilder(String action) {
         this.action = action;
     }
 

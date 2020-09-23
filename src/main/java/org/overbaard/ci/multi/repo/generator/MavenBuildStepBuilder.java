@@ -6,10 +6,10 @@ import java.util.Map;
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
-public class MavenBuildBuilder {
+public class MavenBuildStepBuilder {
     String options;
 
-    public MavenBuildBuilder setOptions(String options) {
+    public MavenBuildStepBuilder setOptions(String options) {
         this.options = options;
         return this;
     }
