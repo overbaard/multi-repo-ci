@@ -53,7 +53,7 @@ public class RepoConfigParserTest {
         Assert.assertEquals("Fail-Label", repoConfig.getFailureLabel());
 
         Map<String, Object> endJob = repoConfig.getEndJob();
-        Assert.assertEquals(12, endJob.get("java-version"));
+        //Assert.assertEquals(12, endJob.get("java-version"));
         Assert.assertEquals(Collections.singletonList("l3"), endJob.get("runs-on"));
         Map<String, String> endJobEnv = (Map)endJob.get("env");
         Assert.assertEquals(2, endJobEnv.size());
@@ -71,7 +71,7 @@ public class RepoConfigParserTest {
 
 
         Map<String, Object> endJob = repoConfig.getEndJob();
-        Assert.assertEquals(12, endJob.get("java-version"));
+        //Assert.assertEquals(12, endJob.get("java-version"));
         Assert.assertEquals(Collections.singletonList("l3"), endJob.get("runs-on"));
         Map<String, String> endJobEnv = (Map)endJob.get("env");
         Assert.assertEquals(1, endJobEnv.size());
@@ -87,7 +87,7 @@ public class RepoConfigParserTest {
 
 
         Map<String, Object> endJob = repoConfig.getEndJob();
-        Assert.assertEquals("12", endJob.get("java-version"));
+        //Assert.assertEquals("12", endJob.get("java-version"));
         Assert.assertEquals(Collections.singletonList("l3"), endJob.get("runs-on"));
         Map<String, String> endJobEnv = (Map)endJob.get("env");
         Assert.assertEquals(1, endJobEnv.size());
