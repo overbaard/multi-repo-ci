@@ -11,12 +11,15 @@ public abstract class BaseComponentJobConfig {
     protected final Map<String, String> jobEnv;
     protected final String javaVersion;
     protected final List<String> needs;
+    private final List<String> runsOn;
 
-    protected BaseComponentJobConfig(String name, Map<String, String> jobEnv, String javaVersion, List<String> needs) {
+    protected BaseComponentJobConfig(String name, Map<String, String> jobEnv,
+                                     String javaVersion, List<String> needs, List<String> runsOn) {
         this.name = name;
         this.jobEnv = jobEnv;
         this.javaVersion = javaVersion;
         this.needs = needs;
+        this.runsOn = runsOn;
     }
 
     public String getName() {
@@ -33,6 +36,10 @@ public abstract class BaseComponentJobConfig {
 
     public List<String> getNeeds() {
         return needs;
+    }
+
+    public List<String> getRunsOn() {
+        return runsOn;
     }
 
     public abstract boolean isEndJob();

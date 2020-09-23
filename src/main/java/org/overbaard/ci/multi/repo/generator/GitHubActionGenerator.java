@@ -304,14 +304,14 @@ public class GitHubActionGenerator {
         componentJobsConfigs.put(component.getName(), config);
         List<ComponentJobConfig> componentJobConfigs = config.getJobs();
         for (ComponentJobConfig componentJobConfig : componentJobConfigs) {
-            boolean buildJob = config.getBuildJob().equals(componentJobConfig.getName());
+            boolean buildJob = config.getBuildJobName().equals(componentJobConfig.getName());
             if (!component.isDebug() || buildJob) {
-                setupComponentBuildJobFromConfig(repoConfig, component, config.getBuildJob(), componentJobConfig);
+                setupComponentBuildJobFromConfig(repoConfig, component, config.getBuildJobName(), componentJobConfig);
             }
         }
 
         if (config.getEndJob() != null) {
-            ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, config.getBuildJob(), config.getEndJob());
+            ConfiguredComponentJobContext context = new ConfiguredComponentJobContext(repoConfig, component, config.getBuildJobName(), config.getEndJob());
             Map<String, Object> job = setupJob(context);
             jobs.put((String)job.get("name"), job);
         }
@@ -335,7 +335,7 @@ public class GitHubActionGenerator {
 
         Map<String, Object> job = new LinkedHashMap<>();
         job.put("name", jobName);
-        job.put("runs-on", "ubuntu-latest");
+        job.put("runs-on", context.getRunsOn());
 
         context.addIfClause(job);
 
@@ -501,18 +501,17 @@ public class GitHubActionGenerator {
     }
 
     private void setupWorkflowEndJob(RepoConfig repoConfig) {
-        setupEndJob(repoConfig.getEndJob(), repoConfig, "ob-ci-end-job", new ArrayList<>(jobs.keySet()));
-    }
-
-    private void setupEndJob(Map<String, Object> job, RepoConfig repoConfig, String jobName, List<String> needs) {
+        Map<String, Object> job = repoConfig.getEndJob();
         if (job == null) {
             return;
         }
+        String jobName = "ob-ci-end-job";
+
         // Copy the job so that the ordering is better
         Map<String, Object> jobCopy = new LinkedHashMap<>();
         jobCopy.put("name", jobName);
-        jobCopy.put("runs-on", "ubuntu-latest");
-        jobCopy.put("needs", needs);
+        jobCopy.put("runs-on", repoConfig.getRunsOn());
+        jobCopy.put("needs", new ArrayList<>(jobs.keySet()));
 
         // RepoConfigParser has ensured there is always an env entry
         Map<String, String> env = new HashMap<>((Map<String, String>)job.get("env"));
@@ -635,7 +634,7 @@ public class GitHubActionGenerator {
                     if (componentJobsConfig == null) {
                         buildJob = getComponentBuildJobId(depComponentName);
                     } else {
-                        buildJob = componentJobsConfig.getBuildJob();
+                        buildJob = componentJobsConfig.getBuildJobName();
                     }
                     ComponentDependencyContext depCtx = new ComponentDependencyContext(dep, buildJob);
                     dependencyContexts.put(depComponentName, depCtx);
@@ -709,6 +708,10 @@ public class GitHubActionGenerator {
             // Default is to do nothing
         }
 
+        public List<String> getRunsOn() {
+            // Copy the list to avoid yaml use anchors/references
+            return new ArrayList<>(repoConfig.getRunsOn());
+        }
     }
 
     private class DefaultComponentJobContext extends ComponentJobContext {
@@ -886,6 +889,14 @@ public class GitHubActionGenerator {
         @Override
         protected boolean isBuildJob() {
             return componentJobConfig.isBuildJob();
+        }
+
+        @Override
+        public List<String> getRunsOn() {
+            if (componentJobConfig.getRunsOn() != null) {
+                return componentJobConfig.getRunsOn();
+            }
+            return super.getRunsOn();
         }
     }
 

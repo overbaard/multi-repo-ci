@@ -2,8 +2,16 @@ env:
   OPT: abc def
   MY_VAR: Test
 java-version: 14
+runs-on: ["l1", "l2"]
 issue-reporting:
   comments: false
   labels:
     success: Pass-Label
     failure: Fail-Label
+end-job:
+  env:
+    MY_VAR: End
+  java-version: 12
+  runs-on: ["l3"]
+  steps:
+    - run: echo

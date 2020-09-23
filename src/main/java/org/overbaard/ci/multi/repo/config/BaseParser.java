@@ -1,6 +1,8 @@
 package org.overbaard.ci.multi.repo.config;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +15,9 @@ import org.overbaard.ci.multi.repo.config.repo.RepoConfigParser;
  */
 public class BaseParser {
     protected Map<String, String> parseEnv(Object input) {
+        if (input == null) {
+            return new HashMap<>();
+        }
         if (input instanceof Map == false) {
             throw new IllegalStateException("Not an instance of Map");
         }
@@ -40,7 +45,35 @@ public class BaseParser {
         return input.toString();
     }
 
-    // TODO I don't think we need this any more
+    protected List<String> parseRunsOn(Object input) {
+        List<String> runsOn = new ArrayList<>();
+        if (input != null) {
+            boolean valid = true;
+            if (!(input instanceof String) && !(input instanceof List)) {
+                valid = false;
+            }
+            if (input instanceof String) {
+                runsOn.add((String) input);
+            }
+            else {
+                for (Object entry : (List<Object>)input) {
+                    if (!(entry instanceof String)) {
+                        valid = false;
+                        break;
+                    }
+                    runsOn.add((String) entry);
+                }
+            }
+            if (!valid) {
+                throw new IllegalStateException("'runs-on' must be either a string or a list of strings");
+            }
+        }
+        if (runsOn.size() == 0) {
+            return null;
+        }
+        return runsOn;
+    }
+
     protected Map<String, Object> preParseEndJob(Object input) {
         if (!(this instanceof RepoConfigParser) && !(this instanceof ComponentJobsConfigParser)) {
             throw new IllegalStateException("Cannot parse end job from " + this.getClass());
@@ -56,9 +89,6 @@ public class BaseParser {
         if (endJob.get("name") != null) {
             throw new IllegalStateException("end-job should not have 'name'");
         }
-        if (endJob.get("runs-on") != null) {
-            throw new IllegalStateException("end-job should not have 'runs-on'");
-        }
         if (endJob.get("needs") != null) {
             throw new IllegalStateException("end-job should not have 'needs'");
         }
@@ -72,6 +102,20 @@ public class BaseParser {
         if (!(steps instanceof List)) {
             throw new IllegalStateException("end-job 'steps' should be a list");
         }
+        parseRunsOn(endJob.get("runs-on"));
+
         return endJob;
     }
+
+    protected Map<String, String> mergeEnv(Map<String, String> mainEnv, Map<String, String> jobEnv) {
+        Map<String, String> merge = new LinkedHashMap<>();
+        if (mainEnv != null) {
+            merge.putAll(mainEnv);
+        }
+        if (jobEnv != null) {
+            merge.putAll(jobEnv);
+        }
+        return merge;
+    }
+
 }

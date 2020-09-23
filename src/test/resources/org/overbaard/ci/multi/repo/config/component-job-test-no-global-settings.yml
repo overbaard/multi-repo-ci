@@ -1,0 +1,16 @@
+build-job: build
+jobs:
+  build:
+    run:
+      - shell: echo hi
+  ts:
+    needs: [build]
+    runs-on: ["l2", "l3"]
+    java-version: 16
+    run:
+      - mvn: package -pl tests ${MAVEN_SMOKE_TEST_PARAMS}
+end-job:
+  runs-on: ["l3"]
+  java-version: 11
+  steps:
+    - run: echo

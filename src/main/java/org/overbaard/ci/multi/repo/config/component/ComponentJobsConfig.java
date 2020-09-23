@@ -22,7 +22,7 @@ public class ComponentJobsConfig {
         return componentName;
     }
 
-    public String getBuildJob() {
+    public String getBuildJobName() {
         return buildJob;
     }
 

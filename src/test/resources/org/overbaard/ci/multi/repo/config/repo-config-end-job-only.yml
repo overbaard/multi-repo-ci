@@ -1,0 +1,7 @@
+end-job:
+  env:
+    MY_VAR: End
+  java-version: 12
+  runs-on: ["l3"]
+  steps:
+    - run: echo
