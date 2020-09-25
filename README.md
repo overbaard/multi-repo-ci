@@ -401,6 +401,15 @@ A good use for a workflow end job could be to upload things from the `OB_ARTIFAC
 permanent storage, e.g here we access it to :
 ```
 end-job:
+  # You can set env vars if you wish:
+  # env:
+  #  MY_VAR: Test  
+  #
+  # 'java-version' is optional.
+  # java-version: 11
+  #
+  # See 'Self-hosted runners' for description of 'runs-on'
+  # runs-on: ["ubuntu-latest"]
   steps:
     - name: Upload file
       run: |-
@@ -409,3 +418,29 @@ end-job:
 ```
 Similar to the custom component build end jobs, you can also add other actions.
   
+### Self-hosted runners
+By default, a value of 
+```
+runs-on: 
+  - ubuntu-latest
+```
+is used for all the generated jobs.
+
+You can override this:
+* in `.repo-config/config.yml` both at:
+  * the 'global' level
+  * the workflow end job
+* in the `.repo-config/component-jobs/<component-name>.yml` files:
+  * on the top level
+  * in the custom component build jobs
+  * in the custom component build end job
+  
+Note that the intent of this mechanism is to enable you to run parts of the workflow on 
+your self-hosted runners. If you are on a public repository, you need to be careful!
+An incomplete list of ideas to make this safer are:
+* To set up firewall rules on the machines/VMs you are hosting the runner on so they cannot wreak
+havoc on your internal network
+* Only allow users who are trusted to open the issues triggering these jobs in your repository.
+
+> :warning: There is not anything stopping you from passing in e.g `windows-latest` but the ***generated 
+workflow currently only works with Linux!*** An `macos-xxx` runner may work, but this is untested.

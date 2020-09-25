@@ -1,6 +1,7 @@
 env:
   P1: 1
   P2: 22
+runs-on: ["Top"]
 java-version: 13
 build-job: build
 jobs:
@@ -15,6 +16,12 @@ jobs:
 
   ts:
     needs: [build]
+    runs-on: ["l1", "l2"]
     java-version: 16
     run:
       - mvn: package -pl tests ${MAVEN_SMOKE_TEST_PARAMS}
+end-job:
+  env:
+    P2: end
+  steps:
+    - run: echo

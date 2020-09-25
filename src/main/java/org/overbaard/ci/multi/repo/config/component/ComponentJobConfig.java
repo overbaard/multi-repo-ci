@@ -10,8 +10,8 @@ public class ComponentJobConfig extends BaseComponentJobConfig {
     private final boolean buildJob;
     private final List<JobRunElementConfig> runElements;
 
-    ComponentJobConfig(String name, boolean buildJob, Map<String, String> jobEnv, String javaVersion, List<String> needs, List<JobRunElementConfig> runElements) {
-        super(name, jobEnv, javaVersion, needs);
+    ComponentJobConfig(String name, boolean buildJob, Map<String, String> jobEnv, String javaVersion, List<String> needs, List<String> runsOn, List<JobRunElementConfig> runElements) {
+        super(name, jobEnv, javaVersion, needs, runsOn);
         this.buildJob = buildJob;
         this.runElements = runElements;
     }

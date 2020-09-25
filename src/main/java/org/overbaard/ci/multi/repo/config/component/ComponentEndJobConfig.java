@@ -10,8 +10,10 @@ public class ComponentEndJobConfig extends BaseComponentJobConfig {
     private final String ifCondition;
     private final List<Map<String, Object>> steps;
 
-    public ComponentEndJobConfig(String name, Map<String, String> jobEnv, String javaVersion, List<String> needs, String ifCondition, List<Map<String, Object>> steps) {
-        super(name, jobEnv, javaVersion, needs);
+    public ComponentEndJobConfig(String name, Map<String, String> jobEnv, String javaVersion,
+                                 List<String> needs, List<String> runsOn, String ifCondition,
+                                 List<Map<String, Object>> steps) {
+        super(name, jobEnv, javaVersion, needs, runsOn);
         this.ifCondition = ifCondition;
         this.steps = steps;
     }

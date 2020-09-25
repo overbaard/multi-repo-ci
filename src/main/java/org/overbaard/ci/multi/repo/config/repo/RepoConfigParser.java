@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import org.overbaard.ci.multi.repo.config.BaseParser;
@@ -43,6 +44,10 @@ public class RepoConfigParser extends BaseParser {
         Object javaVersionInput = input.remove("java-version");
         Object issueReportingInput = input.remove("issue-reporting");
         Object endJobInput = input.remove("end-job");
+        List<String> runsOn = parseRunsOn(input.remove("runs-on"));
+        if (runsOn == null) {
+            runsOn = RepoConfig.DEFAULT_RUNS_ON;
+        }
 
         if (input.size() > 0) {
             throw new IllegalStateException("Unknown entries: " + input.keySet());
@@ -103,7 +108,16 @@ public class RepoConfigParser extends BaseParser {
         }
 
         Map<String, Object> endJob = preParseEndJob(endJobInput);
+        endJob.put("env", mergeEnv(env, (Map<String, String>)endJob.get("env")));
+        // Understand this better
+//        if (endJob.get("java-version") == null) {
+//            endJob.put("java-version", javaVersion);
+//        }
+        if (endJob.get("runs-on") == null) {
+            List<String> ro = runsOn != null ? runsOn : RepoConfig.DEFAULT_RUNS_ON;
+            endJob.put("runs-on", ro);
+        }
 
-        return new RepoConfig(env, javaVersion, commentsReporting, successLabel, failureLabel, endJob);
+        return new RepoConfig(env, javaVersion, runsOn, commentsReporting, successLabel, failureLabel, endJob);
     }
 }
