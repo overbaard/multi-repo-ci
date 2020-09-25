@@ -436,8 +436,11 @@ You can override this:
   * in the custom component build end job
   
 Note that the intent of this mechanism is to enable you to run parts of the workflow on 
-your self-hosted runners assuming you have taken appropriate safe-guards to make sure
-only users who are trusted can open issues.
+your self-hosted runners. If you are on a public repository, you need to be careful!
+An incomplete list of ideas to make this safer are:
+* To set up firewall rules on the machines/VMs you are hosting the runner on so they cannot wreak
+havoc on your internal network
+* Only allow users who are trusted to open the issues triggering these jobs in your repository.
 
 > :warning: There is not anything stopping you from passing in e.g `windows-latest` but the ***generated 
 workflow currently only works with Linux!*** An `macos-xxx` runner may work, but this is untested.

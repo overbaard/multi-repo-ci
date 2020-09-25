@@ -404,8 +404,7 @@ public class GitHubActionGenerator {
                     .build());
         }
 
-        // Make sure that localhost maps to ::1 in the hosts file
-        steps.add(new Ipv6LocalhostStepBuilder().build());
+        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, context.getRunsOn());
 
         steps.addAll(context.createBuildSteps());
 
@@ -549,7 +548,7 @@ public class GitHubActionGenerator {
                         "run",
                         BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
 
-        steps.add(new Ipv6LocalhostStepBuilder().build());
+        addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, (List)jobCopy.get("runs-on"));
 
         steps.add(
                 new RunMultiRepoCiToolCommandStepBuilder()
@@ -565,6 +564,15 @@ public class GitHubActionGenerator {
         jobCopy.put("steps", steps);
 
         jobs.put(jobName, jobCopy);
+    }
+
+    private void addIpv6LocalhostHostEntryIfRunningOnGitHub(List<Object> steps, List<String> runsOn) {
+        if (runsOn.equals(RepoConfig.DEFAULT_RUNS_ON)) {
+            // If it is the default runs on we're most likely running on GitHub which does not
+            // have an IPv6 localhost mapping
+            // We don't want to add that if running on a custom runner
+            steps.add(new Ipv6LocalhostStepBuilder().build());
+        }
     }
 
     private void setupCleanupJob(TriggerConfig triggerConfig) {
