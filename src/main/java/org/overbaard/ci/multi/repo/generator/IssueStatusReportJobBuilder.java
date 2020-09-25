@@ -22,6 +22,8 @@ public class IssueStatusReportJobBuilder {
     private String failureLabel;
     private String failureMessage;
     private Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
+    private String statusOutputVariableName;
+    private String statusOutputOutputName;
 
     public IssueStatusReportJobBuilder(String jobName, int issueNumber) {
         this.jobName = jobName;
@@ -59,10 +61,17 @@ public class IssueStatusReportJobBuilder {
         return this;
     }
 
+    public IssueStatusReportJobBuilder setStatusOutputVariableAndRef(String statusOutputVariableName, String statusOutputOutputName) {
+        this.statusOutputVariableName = statusOutputVariableName;
+        this.statusOutputOutputName = statusOutputOutputName;
+        return this;
+    }
+
     Map<String, Object> build() {
         Map<String, Object> job = new LinkedHashMap<>();
         job.put("name", "Issue Status Report");
         job.put("runs-on", "ubuntu-latest");
+        job.put("if", IfCondition.ALWAYS.getValue());
         if (needs != null) {
             job.put("needs", new ArrayList<>(needs));
         }
@@ -75,6 +84,8 @@ public class IssueStatusReportJobBuilder {
             env.put(envVar, "${{" + entry.getValue() + "}}");
             shaEnvVarsForJobs.put(entry.getKey(), envVar);
         }
+
+        env.put(statusOutputVariableName, "${{" + statusOutputOutputName + "}}");
         job.put("env", env);
 
 
@@ -113,6 +124,10 @@ public class IssueStatusReportJobBuilder {
                     String env = NODE_ENV_PREFIX + entry.getValue();
                     formattedComment.append("  + '" + component + ": ' + " + env + " + '\\n'\n");
                 }
+            }
+            if (statusOutputVariableName != null) {
+                formattedComment.append("  + '\\n'\n");
+                formattedComment.append("  + " + NODE_ENV_PREFIX + statusOutputVariableName + " + '\\n'\n");
             }
             script.setIssueComment(formattedComment.toString());
         }
