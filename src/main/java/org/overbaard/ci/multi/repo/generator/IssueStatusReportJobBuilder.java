@@ -16,18 +16,21 @@ public class IssueStatusReportJobBuilder {
 
     private final String jobName;
     private final int issueNumber;
+    private final boolean success;
+    private final IfCondition ifCondition;
     private Set<String> needs;
-    private String successLabel;
-    private String successMessage;
-    private String failureLabel;
-    private String failureMessage;
+    private String addLabel;
+    private String removeLabel;
+    private String comment;
     private Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
     private String statusOutputVariableName;
     private String statusOutputOutputName;
 
-    public IssueStatusReportJobBuilder(String jobName, int issueNumber) {
+    public IssueStatusReportJobBuilder(String jobName, int issueNumber, boolean success) {
         this.jobName = jobName;
         this.issueNumber = issueNumber;
+        this.success = success;
+        this.ifCondition = success ? IfCondition.SUCCESS : IfCondition.FAILURE;
     }
 
     public IssueStatusReportJobBuilder setNeeds(Set<String> needs) {
@@ -40,24 +43,18 @@ public class IssueStatusReportJobBuilder {
         return this;
     }
 
-    public IssueStatusReportJobBuilder setSuccessLabel(String successLabel){
-        this.successLabel = successLabel;
+    public IssueStatusReportJobBuilder setAddLabel(String addLabel){
+        this.addLabel = addLabel;
         return this;
     }
 
-    public IssueStatusReportJobBuilder setFailureLabel(String failureLabel) {
-        this.failureLabel = failureLabel;
+    public IssueStatusReportJobBuilder setRemoveLabel(String removeLabel){
+        this.removeLabel = removeLabel;
         return this;
     }
 
-    public IssueStatusReportJobBuilder setSuccessMessage(String successMessage) {
-        this.successMessage = successMessage;
-        return this;
-    }
-
-
-    public IssueStatusReportJobBuilder setFailureMessage(String failureMessage) {
-        this.failureMessage = failureMessage;
+    public IssueStatusReportJobBuilder setComment(String comment) {
+        this.comment = comment;
         return this;
     }
 
@@ -69,9 +66,9 @@ public class IssueStatusReportJobBuilder {
 
     Map<String, Object> build() {
         Map<String, Object> job = new LinkedHashMap<>();
-        job.put("name", "Issue Status Report");
+        job.put("name", "Issue Status Report - " + ( success ? "Success" : "Failure"));
         job.put("runs-on", "ubuntu-latest");
-        job.put("if", IfCondition.ALWAYS.getValue());
+        job.put("if", ifCondition.getValue());
         if (needs != null) {
             job.put("needs", new ArrayList<>(needs));
         }
@@ -88,24 +85,46 @@ public class IssueStatusReportJobBuilder {
         env.put(statusOutputVariableName, "${{" + statusOutputOutputName + "}}");
         job.put("env", env);
 
-
         List<Object> steps = new ArrayList<>();
         job.put("steps", steps);
 
-        if (successLabel != null || successMessage != null) {
-            steps.add(createScriptStep(IfCondition.SUCCESS, shaEnvVarsForJobs, successLabel, failureLabel, successMessage));
+
+        GitScriptStepBuilder script = new GitScriptStepBuilder(issueNumber);
+        script.setName("report-status");
+        if (addLabel != null) {
+            script.setAddIssueLabels(addLabel);
         }
-        if (failureLabel != null || failureMessage != null) {
-            steps.add(createScriptStep(IfCondition.FAILURE, shaEnvVarsForJobs, failureLabel, successLabel, failureMessage));
+        if (removeLabel != null) {
+            script.setRemoveIssueLabels(removeLabel);
         }
+        if (comment != null) {
+            StringBuilder formattedComment = new StringBuilder();
+            // We need to format this for javascript, which is a bit odd
+            formattedComment.append("'" + comment + "\\n\\n'\n");
+            if (shaEnvVarsForJobs.size() > 0) {
+                formattedComment.append("  + 'These are the job names and their respective SHA-1 hashes:\\n\\n'\n");
+                for (Map.Entry<String, String> entry : shaEnvVarsForJobs.entrySet()) {
+                    String component = entry.getKey();
+                    // We need this prefix so node can find it
+                    String shaEnvVar = NODE_ENV_PREFIX + entry.getValue();
+                    formattedComment.append("  + '" + component + ": ' + " + shaEnvVar + " + '\\n'\n");
+                }
+            }
+            if (statusOutputVariableName != null) {
+                formattedComment.append("  + '\\n'\n");
+                formattedComment.append("  + " + NODE_ENV_PREFIX + statusOutputVariableName + " + '\\n'\n");
+            }
+            script.setIssueComment(formattedComment.toString());
+        }
+
+        steps.add(script.build());
 
         return job;
     }
 
-    private Map<String, Object> createScriptStep(IfCondition ifCondition, Map<String, String> shaEnvVarsForJobs, String addLabel, String removeLabel, String issueComment) {
+    private Map<String, Object> createScriptStep(Map<String, String> shaEnvVarsForJobs, String addLabel, String removeLabel, String issueComment) {
         GitScriptStepBuilder script = new GitScriptStepBuilder(issueNumber);
-        script.setName(ifCondition == IfCondition.SUCCESS ? "report-success" : "report-failure");
-        script.setIfCondition(ifCondition);
+        script.setName("report-status");
         if (addLabel != null) {
             script.setAddIssueLabels(addLabel);
         }

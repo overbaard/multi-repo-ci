@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.ToolCommand;
@@ -207,7 +208,7 @@ public class GitHubActionGenerator {
         if (!hasDebugComponents) {
             setupWorkflowEndJob(repoConfig);
             setupReadStatusOutputJob(repoConfig);
-            setupStatusReportingJob(repoConfig, triggerConfig);
+            setupStatusReportingJobs(repoConfig, triggerConfig);
             setupCleanupJob(triggerConfig);
         }
 
@@ -621,8 +622,10 @@ public class GitHubActionGenerator {
         jobs.put(jobName, job);
     }
 
-    private void setupStatusReportingJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
-
+    private void setupStatusReportingJobs(RepoConfig repoConfig, TriggerConfig triggerConfig) {
+        if (!repoConfig.isCommentsReporting() && repoConfig.getSuccessLabel() == null || repoConfig.getFailureLabel() == null) {
+            return;
+        }
         // Let the Job builder do the proper formatting of the message
         // It currently uses the github-script action which uses JavaScript
         // so it is quite 'specialised'
@@ -635,19 +638,23 @@ public class GitHubActionGenerator {
             jobNamesAndVersionVariables.put(buildJobName, hash);
         }
 
-        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
-            String jobName = "ob-ci-status";
-            IssueStatusReportJobBuilder jobBuilder =
-                    new IssueStatusReportJobBuilder(jobName, issueNumber);
-            jobBuilder.setNeeds(jobs.keySet());
-            jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
-            jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
-            jobBuilder.setSuccessMessage("The job passed!");
-            jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
-            jobBuilder.setFailureMessage("The job failed");
-            jobBuilder.setStatusOutputVariableAndRef("status_output", STATUS_OUTPUT_OUTPUT_REF);
-            jobs.put(jobName, jobBuilder.build());
-        }
+        // Grab the previous jobs here, since each of the setup methods will modify the current map
+        Set<String> needs = jobs.keySet();
+        setupStatusReportingJob(repoConfig, needs, jobNamesAndVersionVariables, true);
+        setupStatusReportingJob(repoConfig, needs, jobNamesAndVersionVariables, false);
+    }
+
+    private void setupStatusReportingJob(RepoConfig repoConfig, Set<String> needs, Map<String, String> jobNamesAndVersionVariables, boolean success) {
+        String jobName = "ob-ci-status-" + (success ? "success" : "failure");
+        IssueStatusReportJobBuilder jobBuilder =
+                new IssueStatusReportJobBuilder(jobName, issueNumber, success);
+        jobBuilder.setNeeds(needs);
+        jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
+        jobBuilder.setComment(success ? "The workflow passed!" : "The workflow failed.");
+        jobBuilder.setAddLabel(success ? repoConfig.getSuccessLabel() : repoConfig.getFailureLabel());
+        jobBuilder.setRemoveLabel(success ? repoConfig.getFailureLabel() : repoConfig.getSuccessLabel());
+        jobBuilder.setStatusOutputVariableAndRef("status_output", STATUS_OUTPUT_OUTPUT_REF);
+        jobs.put(jobName, jobBuilder.build());
     }
 
     private void setupCleanupJob(TriggerConfig triggerConfig) {
