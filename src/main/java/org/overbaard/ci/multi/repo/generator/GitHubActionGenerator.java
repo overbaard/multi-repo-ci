@@ -599,11 +599,7 @@ public class GitHubActionGenerator {
                         .setRebase()
                         .build());
         StringBuilder run = new StringBuilder();
-        run.append("TMP=\"$(cat ${" + OB_STATUS_VAR_NAME + "})\"\n");
-        //tmp ouput
-        run.append("echo File contents:\n");
-        run.append("echo \"${TMP}\"\n");
-
+        run.append("[[ -f \"${" + OB_STATUS_VAR_NAME + "}\" ]] && TMP=\"$(cat ${" + OB_STATUS_VAR_NAME + "})\"\n");
         // Escape newline and other characters as recommended in https://github.com/actions/toolkit/issues/403
         // Otherwise we just get the first line in the output variable
         run.append("TMP=\"${TMP//'%'/'%25'}\"\n");
