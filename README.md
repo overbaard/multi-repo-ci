@@ -180,8 +180,10 @@ issue-reporting:
 
 From custom component builds and end jobs, you can write to a file indicated by the `${$OB_STATUS_TEXT}`
 environment variable. If you have enabled comments when the job completes, the contents of this file
-will be appended to the issue comment. It can be useful e.g. if you decide to upload resulting files
-from your workflow somewhere, and include links to those in the issue comment.
+will be appended to the issue comment. This can be useful e.g.: 
+* if you decide to upload resulting files from your workflow somewhere, and include links to those in 
+the issue comment
+* to include a link to the workflow run
 
 ## Custom component builds
 By default with what we have seen so far, the tool will generate a workflow file 
