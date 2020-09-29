@@ -172,11 +172,16 @@ indicating success or failure, add an `issue-reporting` section to the
 
 ```
 issue-reporting:
-  comments: true
+  comments: false
   labels:
    success: Passed
    failure: Failure
 ```
+
+From custom component builds and end jobs, you can write to a file indicated by the `${$OB_STATUS_TEXT}`
+environment variable. If you have enabled comments when the job completes, the contents of this file
+will be appended to the issue comment. It can be useful e.g. if you decide to upload resulting files
+from your workflow somewhere, and include links to those in the issue comment.
 
 ## Custom component builds
 By default with what we have seen so far, the tool will generate a workflow file 
@@ -319,6 +324,8 @@ have any problems you should find some other mechanism for external storage.
 * `${OB_VERSION_<COMPONENT_NAME>}` - There will be one of these for each component built 
 before this component. So, e.g if the component was configured to depend on `my-component`, 
 the resulting variable name will be `OB_VERSION_MY_COMPONENT`.
+* `${$OB_STATUS_TEXT}`- Location of a file whose contents will be appended to the issue
+comment once the workflow is done (if you configured issue comments to be made).
 
 ## End jobs
 In both the custom component build configuration files (e.g. `.repo-config/component-jobs/<component-name>.yml`) 
@@ -391,8 +398,8 @@ To add a workflow end job, you define it in the same way as you would define a c
 end job, but this time you define it in `.repo-config/config.yml`. You end up with a lighter 
 environment than you did before:
 * Java is set up
-* You have access to the `OB_ARTIFACTS_DIR` and the `OB_VERSION_<COMPONENT_NAME>` environment 
-variables as [mentioned previously](#custom-component-build-vars)
+* You have access to the `OB_ARTIFACTS_DIR`, `${$OB_STATUS_TEXT}` and the 
+`OB_VERSION_<COMPONENT_NAME>` environment variables as [mentioned previously](#custom-component-build-vars)
   * The `$OB_ARTIFACTS_DIR` is populated with whatever files we put into there earlier. Note 
   that copying anything into `$OB_ARTIFACTS_DIR` at this stage is possible but has no effect
   on things happening later in the generated workflow.

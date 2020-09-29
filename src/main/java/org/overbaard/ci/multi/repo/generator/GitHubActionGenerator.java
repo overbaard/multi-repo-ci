@@ -46,6 +46,11 @@ public class GitHubActionGenerator {
     public static final String OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME = "OB_MAVEN_DEPENDENCY_VERSIONS";
     public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
     public static final String OB_ARTIFACTS_DIRECTORY_NAME = "artifacts";
+    public static final String OB_STATUS_VAR_NAME = "OB_STATUS_TEXT";
+    public static final String OB_STATUS_RELATIVE_PATH = OB_ARTIFACTS_DIRECTORY_NAME + "/status-text.txt";
+    final static String STATUS_OUTPUT_JOB_NAME = "ob-ci-read-status-output";
+    final static String STATUS_OUTPUT_OUTPUT_VAR_NAME = "status-output";
+    final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + STATUS_OUTPUT_JOB_NAME + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
 
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
@@ -201,7 +206,8 @@ public class GitHubActionGenerator {
 
         if (!hasDebugComponents) {
             setupWorkflowEndJob(repoConfig);
-            setupReportingJob(repoConfig, triggerConfig);
+            setupReadStatusOutputJob(repoConfig);
+            setupStatusReportingJob(repoConfig, triggerConfig);
             setupCleanupJob(triggerConfig);
         }
 
@@ -472,33 +478,6 @@ public class GitHubActionGenerator {
                         .build());
     }
 
-    private void setupReportingJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
-
-        // Let the Job builder do the proper formatting of the message
-        // It currently uses the github-script action which uses JavaScript
-        // so it is quite 'specialised'
-        Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
-        for (String buildJobName : buildJobNamesByComponent.values()) {
-            String hash = String.format("needs.%s.outputs.%s",
-                    buildJobName,
-                    REV_PARSE_STEP_OUTPUT);
-            jobNamesAndVersionVariables.put(buildJobName, hash);
-        }
-
-        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
-            String jobName = "ob-ci-status";
-            IssueStatusReportJobBuilder jobBuilder =
-                    new IssueStatusReportJobBuilder(jobName, issueNumber);
-            jobBuilder.setNeeds(jobs.keySet());
-            jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
-            jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
-            jobBuilder.setSuccessMessage("The job passed!");
-            jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
-            jobBuilder.setFailureMessage("The job failed");
-            jobs.put(jobName, jobBuilder.build());
-        }
-    }
-
     private void setupWorkflowEndJob(RepoConfig repoConfig) {
         Map<String, Object> job = repoConfig.getEndJob();
         if (job == null) {
@@ -509,7 +488,8 @@ public class GitHubActionGenerator {
         // Copy the job so that the ordering is better
         Map<String, Object> jobCopy = new LinkedHashMap<>();
         jobCopy.put("name", jobName);
-        jobCopy.put("runs-on", repoConfig.getRunsOn());
+        // Copy the list to avoid yaml use anchors/references
+        jobCopy.put("runs-on", new ArrayList<>(repoConfig.getRunsOn()));
         jobCopy.put("needs", new ArrayList<>(jobs.keySet()));
 
         // RepoConfigParser has ensured there is always an env entry
@@ -518,6 +498,7 @@ public class GitHubActionGenerator {
         addComponentVersionEnvVars(env);
 
         env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
+        env.put(OB_STATUS_VAR_NAME, OB_STATUS_RELATIVE_PATH);
 
         for (String key : job.keySet()) {
             if (!key.equals("env") && !key.equals("steps")) {
@@ -530,6 +511,7 @@ public class GitHubActionGenerator {
         // Add boiler plate steps
 
         steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+        steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
 
         steps.add(new CheckoutStepBuilder()
                 .setBranch(branchName)
@@ -563,15 +545,108 @@ public class GitHubActionGenerator {
         steps.addAll(jobSteps);
         jobCopy.put("steps", steps);
 
+        // Make sure we split any large files that people might have copied into the artifacts directory
+        steps.add(
+                new RunMultiRepoCiToolCommandStepBuilder()
+                        .setJar(TOOL_JAR_NAME)
+                        .setCommand(SplitLargeFilesInDirectory.SplitCommand.NAME)
+                        .addArgs("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .build());
+
+        // Push the changes to the artifacts
+        steps.add(
+                new GitCommandStepBuilder()
+                        .setStandardUserAndEmail()
+                        .addFiles("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        .setCommitMessage("Store any artifacts copied to \\${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "} by " + jobName)
+                        .setPush()
+                        .setIfCondition(IfCondition.SUCCESS)
+                        .build());
+
         jobs.put(jobName, jobCopy);
     }
 
-    private void addIpv6LocalhostHostEntryIfRunningOnGitHub(List<Object> steps, List<String> runsOn) {
-        if (runsOn.equals(RepoConfig.DEFAULT_RUNS_ON)) {
-            // If it is the default runs on we're most likely running on GitHub which does not
-            // have an IPv6 localhost mapping
-            // We don't want to add that if running on a custom runner
-            steps.add(new Ipv6LocalhostStepBuilder().build());
+
+    private void setupReadStatusOutputJob(RepoConfig repoConfig) {
+        String jobName = STATUS_OUTPUT_JOB_NAME;
+
+        Map<String, Object> job = new LinkedHashMap<>();
+        job.put("name", jobName);
+        // Copy the list to avoid yaml use anchors/references
+        job.put("runs-on", new ArrayList<>(repoConfig.DEFAULT_RUNS_ON));
+        job.put("needs", new ArrayList<>(jobs.keySet()));
+        job.put("if", IfCondition.ALWAYS.getValue());
+
+        // RepoConfigParser has ensured there is always an env entry
+        Map<String, String> env = new HashMap<>();
+        job.put("env", env);
+        env.put(OB_STATUS_VAR_NAME, OB_STATUS_RELATIVE_PATH);
+        job.put("outputs",
+                Collections.singletonMap(STATUS_OUTPUT_OUTPUT_VAR_NAME,
+                        String.format("${{steps.%s.outputs.%s}}", STATUS_OUTPUT_OUTPUT_VAR_NAME, STATUS_OUTPUT_OUTPUT_VAR_NAME)));
+
+        List<Object> steps = new ArrayList();
+
+        // Add boiler plate steps
+        steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
+
+        steps.add(new CheckoutStepBuilder()
+                .setBranch(branchName)
+                .build());
+        steps.add(
+                new GitCommandStepBuilder()
+                        .setRebase()
+                        .build());
+        StringBuilder run = new StringBuilder();
+        run.append("TMP=\"$(cat ${" + OB_STATUS_VAR_NAME + "})\"\n");
+        //tmp ouput
+        run.append("echo File contents:\n");
+        run.append("echo \"${TMP}\"\n");
+
+        // Escape newline and other characters as recommended in https://github.com/actions/toolkit/issues/403
+        // Otherwise we just get the first line in the output variable
+        run.append("TMP=\"${TMP//'%'/'%25'}\"\n");
+        run.append("TMP=\"${TMP//$'\\n'/'%0A'}\"\n");
+        run.append("TMP=\"${TMP//$'\\r'/'%0D'}\"\n");
+        run.append("echo \"::set-output name=" + STATUS_OUTPUT_OUTPUT_VAR_NAME + "::${TMP}\"\n");
+
+        Map<String, Object> readStatusStep = new LinkedHashMap<>();
+        readStatusStep.put("id", STATUS_OUTPUT_OUTPUT_VAR_NAME);
+        readStatusStep.put("run", run.toString());
+
+        steps.add(readStatusStep);
+
+        job.put("steps", steps);
+
+        jobs.put(jobName, job);
+    }
+
+    private void setupStatusReportingJob(RepoConfig repoConfig, TriggerConfig triggerConfig) {
+
+        // Let the Job builder do the proper formatting of the message
+        // It currently uses the github-script action which uses JavaScript
+        // so it is quite 'specialised'
+        Map<String, String> jobNamesAndVersionVariables = new LinkedHashMap<>();
+        for (String buildJobName : buildJobNamesByComponent.values()) {
+
+            String hash = String.format("needs.%s.outputs.%s",
+                    buildJobName,
+                    REV_PARSE_STEP_OUTPUT);
+            jobNamesAndVersionVariables.put(buildJobName, hash);
+        }
+
+        if (repoConfig.isCommentsReporting() || repoConfig.getSuccessLabel() != null || repoConfig.getFailureLabel() != null) {
+            String jobName = "ob-ci-status";
+            IssueStatusReportJobBuilder jobBuilder =
+                    new IssueStatusReportJobBuilder(jobName, issueNumber);
+            jobBuilder.setNeeds(jobs.keySet());
+            jobBuilder.setJobNamesAndVersionVariables(jobNamesAndVersionVariables);
+            jobBuilder.setSuccessLabel(repoConfig.getSuccessLabel());
+            jobBuilder.setSuccessMessage("The job passed!");
+            jobBuilder.setFailureLabel(repoConfig.getFailureLabel());
+            jobBuilder.setFailureMessage("The job failed");
+            jobBuilder.setStatusOutputVariableAndRef("status_output", STATUS_OUTPUT_OUTPUT_REF);
+            jobs.put(jobName, jobBuilder.build());
         }
     }
 
@@ -604,6 +679,15 @@ public class GitHubActionGenerator {
             String componentName = entry.getKey();
             String buildJobName = entry.getValue();
             env.put(getEndUserVersionEnvVarName(componentName), "${{ " + formatOutputVersionVariableName(buildJobName, componentName) + "}}");
+        }
+    }
+
+    private void addIpv6LocalhostHostEntryIfRunningOnGitHub(List<Object> steps, List<String> runsOn) {
+        if (runsOn.equals(RepoConfig.DEFAULT_RUNS_ON)) {
+            // If it is the default runs on we're most likely running on GitHub which does not
+            // have an IPv6 localhost mapping
+            // We don't want to add that if running on a custom runner
+            steps.add(new Ipv6LocalhostStepBuilder().build());
         }
     }
 
@@ -799,6 +883,7 @@ public class GitHubActionGenerator {
             List<Map<String, Object>> steps = new ArrayList<>();
 
             steps.add(new AbsolutePathVariableStepBuilder(OB_ARTIFACTS_DIRECTORY_VAR_NAME).build());
+            steps.add(new AbsolutePathVariableStepBuilder(OB_STATUS_VAR_NAME).build());
 
             if (isBuildJob()) {
                 // Ensure the artifacts directory is there
@@ -807,7 +892,7 @@ public class GitHubActionGenerator {
                 artifactsDir.put("name", "Ensure artifacts dir is there");
                 artifactsDir.put("run",
                         BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}") +
-                                "touch ${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}/.gitkeep\n");
+                                "touch ${" + OB_STATUS_VAR_NAME + "}\n");
                 steps.add(artifactsDir);
             }
 
@@ -873,6 +958,7 @@ public class GitHubActionGenerator {
             env.putAll(super.createEnv());
             env.putAll(componentJobConfig.getJobEnv());
             env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ARTIFACTS_DIRECTORY_NAME);
+            env.put(OB_STATUS_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_STATUS_RELATIVE_PATH);
             if (!isBuildJob()) {
                 String var = "${{ " + formatOutputVersionVariableName(buildJobName, component.getName() + " }}");
                 env.put(OB_PROJECT_VERSION_VAR_NAME, var);
