@@ -310,6 +310,7 @@ testing up a lot.
 
 <a name="custom-component-build-vars"></a>
 Each of the steps in a custom component build has access to the following env vars:
+* `${OB_ISSUE_ID}` - contains the id of the issue that triggered the workflow
 * `${$OB_PROJECT_VERSION}` - contains the captured version of the component being built
 * `${OB_ARTIFACTS_DIR}` - contains the absoulute path of a directory that can be used to 
 share files between jobs. This is part of the `multi-repo-ci-branch-<issue id>` branch 
@@ -400,7 +401,7 @@ To add a workflow end job, you define it in the same way as you would define a c
 end job, but this time you define it in `.repo-config/config.yml`. You end up with a lighter 
 environment than you did before:
 * Java is set up
-* You have access to the `OB_ARTIFACTS_DIR`, `${$OB_STATUS_TEXT}` and the 
+* You have access to the `OB_ISSUE_ID`, OB_ARTIFACTS_DIR`, `${$OB_STATUS_TEXT}` and the
 `OB_VERSION_<COMPONENT_NAME>` environment variables as [mentioned previously](#custom-component-build-vars)
   * The `$OB_ARTIFACTS_DIR` is populated with whatever files we put into there earlier. Note 
   that copying anything into `$OB_ARTIFACTS_DIR` at this stage is possible but has no effect
