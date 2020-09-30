@@ -529,7 +529,8 @@ public class GitHubActionGenerator {
         steps.add(
                 Collections.singletonMap(
                         "run",
-                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        + "touch ${" + OB_STATUS_VAR_NAME + "}\n"));
 
         addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, (List)jobCopy.get("runs-on"));
 
