@@ -38,6 +38,16 @@ jobs:
         git config --global user.name "CI Action"
         echo "${{ github.event.issue.body }}" > config.yml
         java -jar ${TOOL_JAR} generate-workflow --workflow-dir=.github/workflows --yaml=config.yml --issue=${{ github.event.issue.number }} --branch=$BRANCH
+        # Make sure .gitignore exists and that it contains .ci-tools as the generated workflow clones the
+        # branch containing it into a sub-folder with this name, which in turn gives some warnings
+        if [[ ! -f .gitignore ]]; then
+          # Make sure .gitignore exists
+          touch .gitignore
+        fi
+        if ! grep -q .ci-tools .gitignore; then
+          # Add .ci-tools to .gitignore
+          echo .ci-tools >> .gitignore
+        fi        
         git add -A
         git commit -m "Testing file for #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
         git push --force origin "${BRANCH}"
