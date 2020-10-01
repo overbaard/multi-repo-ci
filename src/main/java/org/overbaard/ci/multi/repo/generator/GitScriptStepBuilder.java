@@ -65,7 +65,7 @@ public class GitScriptStepBuilder {
 
         Map<String, Object> with = new LinkedHashMap<>();
         step.put("with", with);
-        with.put("github-token", "${{ secrets.OB_MULTI_CI_PAT }}");
+        with.put("github-token", "${{" + GitHubActionGenerator.TOKEN_NAME + "}}");
 
         StringBuilder script = new StringBuilder();
         addIssueLabels(script);
