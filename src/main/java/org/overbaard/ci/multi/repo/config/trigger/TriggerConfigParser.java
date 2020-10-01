@@ -1,8 +1,15 @@
 package org.overbaard.ci.multi.repo.config.trigger;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,13 +35,44 @@ public class TriggerConfigParser extends BaseParser {
     }
 
     public TriggerConfig parse()  {
-        Map<String, Object> map = null;
-        try {
-            Yaml yaml = new Yaml();
-            map = yaml.load(new BufferedInputStream(new FileInputStream(yamlFile.toFile())));
-        } catch (FileNotFoundException e) {
+        StringBuilder sanitizedInput = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(yamlFile.toFile()))) {
+            String line = reader.readLine();
+            boolean foundStart = false;
+            boolean errorStart = false;
+            while (line != null) {
+                if (!foundStart && !errorStart) {
+                    if (line.trim().length() > 0) {
+                        if (line.startsWith("```")) {
+                            foundStart = true;
+                        } else {
+                            System.err.println("The yaml in the issue must be in a code block.");
+                            System.err.println("The format is:");
+                            System.err.println("```");
+                            System.err.println("<your yaml>");
+                            System.err.println("```");
+                            System.err.println();
+                            System.err.println("Note that the ``` occurrences should be all the way left. " +
+                                    "When it looks nice in the GitHub issue you have it!");
+                            System.exit(1);
+                        }
+                    }
+                } else {
+                    if (line.startsWith("```")) {
+                        break;
+                    }
+                    sanitizedInput.append(line + '\n');
+
+                }
+                line = reader.readLine();
+            }
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        Map<String, Object> map = null;
+        Yaml yaml = new Yaml();
+        map = yaml.load(sanitizedInput.toString());
+
         Object name = map.remove("name");
         Object envInput = map.remove("env");
         Object componentsInput = map.remove("components");
