@@ -30,13 +30,19 @@ jobs:
         echo "::set-env name=TOOL_JAR::multi-repo-ci-tool.jar"
 
     - name: Create branch
+      env: 
+        issue_body: ${{github.event.issue.body}}
+        issue_id: ${{github.event.issue.number}}
       run: |
         git branch
-        BRANCH=multi-repo-ci-branch-${{ github.event.issue.number }}
+        BRANCH=multi-repo-ci-branch-${issue_id}
         git checkout -b "${BRANCH}"
         git config --global user.email "ci@example.com"
         git config --global user.name "CI Action"
-        echo "${{ github.event.issue.body }}" > config.yml
+        touch config.yml
+        echo "${issue_body}" > config.yml
+        echo config.yml contents
+        cat config.yml
         java -jar ${TOOL_JAR} generate-workflow --workflow-dir=.github/workflows --yaml=config.yml --issue=${{ github.event.issue.number }} --branch=$BRANCH
         # Make sure .gitignore exists and that it contains .ci-tools as the generated workflow clones the
         # branch containing it into a sub-folder with this name, which in turn gives some warnings
@@ -47,7 +53,24 @@ jobs:
         if ! grep -q .ci-tools .gitignore; then
           # Add .ci-tools to .gitignore
           echo .ci-tools >> .gitignore
-        fi        
+        fi
         git add -A
-        git commit -m "Testing file for #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
+        git commit -m "Testing file for #${issue_id} - ${{ github.event.issue.title }}"
         git push --force origin "${BRANCH}"
+
+    - name: Report failure
+      env:
+        run_url: https://github.com/${{github.repository}}/actions/runs/${{github.run_id}}
+        issue_id: ${{ github.event.issue.number }}
+      if: ${{ failure() }}
+      uses: actions/github-script@v3
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.issues.createComment({
+            issue_number: process.env.issue_id,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: 'Something went wrong setting up the job.\n\n'
+            + 'Refer to the logs at ' + process.env.run_url,
+          })

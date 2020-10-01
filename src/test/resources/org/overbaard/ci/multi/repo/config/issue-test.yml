@@ -16,3 +16,4 @@ components:
     dependencies:
       - name: wildfly-common
         property: version.wildfly.common
+```
