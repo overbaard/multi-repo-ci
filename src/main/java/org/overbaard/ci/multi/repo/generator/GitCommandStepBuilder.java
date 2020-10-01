@@ -76,10 +76,10 @@ public class GitCommandStepBuilder {
 
         StringBuilder run = new StringBuilder();
         if (gitUser != null) {
-            run.append("git config --global user.name \"" + gitUser + "\"\n");
+            run.append("git config --local user.name \"" + gitUser + "\"\n");
         }
         if (gitEmail != null) {
-            run.append("git config --global user.email \"" + gitEmail + "\"\n");
+            run.append("git config --local user.email \"" + gitEmail + "\"\n");
         }
         if (addFiles.length > 0) {
             run.append("git add");

@@ -43,6 +43,7 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class GitHubActionGenerator {
     public static final String TOKEN_NAME = "secrets.OB_MULTI_CI_PAT";
+    public static final String OB_ISSUE_ID_VAR_NAME = "OB_ISSUE_ID";
     public static final String OB_PROJECT_VERSION_VAR_NAME = "OB_PROJECT_VERSION";
     public static final String OB_END_JOB_MAVEN_DEPENDENCY_VERSIONS_VAR_NAME = "OB_MAVEN_DEPENDENCY_VERSIONS";
     public static final String OB_ARTIFACTS_DIRECTORY_VAR_NAME = "OB_ARTIFACTS_DIR";
@@ -234,6 +235,7 @@ public class GitHubActionGenerator {
         for (String key : repoConfig.getEnv().keySet()) {
             env.put(key, repoConfig.getEnv().get(key));
         }
+        env.put(OB_ISSUE_ID_VAR_NAME, issueNumber);
         for (String key : triggerConfig.getEnv().keySet()) {
             Object value = triggerConfig.getEnv().get(key);
             Object existing = env.get(key);
@@ -529,7 +531,8 @@ public class GitHubActionGenerator {
         steps.add(
                 Collections.singletonMap(
                         "run",
-                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")));
+                        BashUtils.createDirectoryIfNotExist("${" + OB_ARTIFACTS_DIRECTORY_VAR_NAME + "}")
+                        + "touch ${" + OB_STATUS_VAR_NAME + "}\n"));
 
         addIpv6LocalhostHostEntryIfRunningOnGitHub(steps, (List)jobCopy.get("runs-on"));
 
