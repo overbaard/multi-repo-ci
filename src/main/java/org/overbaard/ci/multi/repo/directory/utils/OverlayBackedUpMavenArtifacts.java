@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import org.overbaard.ci.multi.repo.ToolCommand;
+import org.overbaard.ci.multi.repo.Util;
 
 /**
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
@@ -50,7 +51,7 @@ public class OverlayBackedUpMavenArtifacts {
                 try {
                     overlayComponent(componentBackup);
                 } catch (IOException e) {
-                    rethrow(e);
+                    Util.rethrow(e);
                 }
             });
         }
@@ -92,10 +93,6 @@ public class OverlayBackedUpMavenArtifacts {
                 }
             });
         }
-    }
-
-    static <T extends Throwable> void rethrow(Throwable t) throws T {
-        throw (T) t;
     }
 
     public static class Command implements ToolCommand {

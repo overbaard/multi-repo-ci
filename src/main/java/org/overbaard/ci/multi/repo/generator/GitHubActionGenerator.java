@@ -54,6 +54,8 @@ public class GitHubActionGenerator {
     final static String STATUS_OUTPUT_OUTPUT_VAR_NAME = "status-output";
     final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + STATUS_OUTPUT_JOB_NAME + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
 
+    public final static Path ISSUE_DATA_JSON_FILE = Paths.get("issue-data.json");
+
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
     private static final String ARG_ISSUE = "--issue";
@@ -99,10 +101,6 @@ public class GitHubActionGenerator {
         this.yamlConfig = yamlConfig;
         this.branchName = branchName;
         this.issueNumber = issueNumber;
-    }
-
-    public Path getYamlConfig() {
-        return yamlConfig;
     }
 
     static void generate(String[] args) throws Exception {

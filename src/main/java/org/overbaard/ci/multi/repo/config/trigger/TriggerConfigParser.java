@@ -1,22 +1,25 @@
 package org.overbaard.ci.multi.repo.config.trigger;
 
-import java.io.BufferedInputStream;
+import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_FILE;
+
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.BufferedWriter;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.overbaard.ci.multi.repo.Util;
 import org.overbaard.ci.multi.repo.config.BaseParser;
 import org.yaml.snakeyaml.Yaml;
 
@@ -25,6 +28,7 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class TriggerConfigParser extends BaseParser {
     private final Path yamlFile;
+    private static final Path outputFile = ISSUE_DATA_JSON_FILE.toAbsolutePath();
 
     private TriggerConfigParser(Path yamlFile) {
         this.yamlFile = yamlFile;
@@ -69,9 +73,9 @@ public class TriggerConfigParser extends BaseParser {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        Map<String, Object> map = null;
+
         Yaml yaml = new Yaml();
-        map = yaml.load(sanitizedInput.toString());
+        Map<String, Object> map = yaml.load(sanitizedInput.toString());
 
         Object name = map.remove("name");
         Object envInput = map.remove("env");
@@ -86,7 +90,9 @@ public class TriggerConfigParser extends BaseParser {
 
         List<Component> components = parseComponents(componentsInput);
 
-        return new TriggerConfig((String) name, env, components);
+        TriggerConfig triggerConfig = new TriggerConfig((String) name, env, components);
+        writeOutputFile(triggerConfig);
+        return triggerConfig;
     }
 
     private List<Component> parseComponents(Object input) {
@@ -214,4 +220,50 @@ public class TriggerConfigParser extends BaseParser {
             }
         }
     }
+
+    private void writeOutputFile(TriggerConfig triggerConfig) {
+
+        try {
+            if (Files.exists(outputFile)) {
+                Files.delete(outputFile);
+            }
+            if (!Files.exists(outputFile.getParent())) {
+                Files.createDirectories(outputFile.getParent());
+            }
+            if (!Files.isDirectory(outputFile.getParent())) {
+                throw new IllegalArgumentException(outputFile.getParent() + " is not a directory");
+            }
+
+            JSONObject jo = new JSONObject();
+            jo.put("name", triggerConfig.getName());
+            jo.put("env", triggerConfig.getEnv());
+
+            JSONObject components = new JSONObject();
+            for (Component c : triggerConfig.getComponents()) {
+                JSONObject co = new JSONObject();
+                co.put("name", c.getName());
+                co.put("org", c.getOrg());
+                co.put("branch", c.getBranch());
+
+                if (c.getDependencies().size() > 0) {
+                    JSONArray deps = new JSONArray();
+                    for (Dependency d : c.getDependencies()) {
+                        JSONObject dep = new JSONObject();
+                        dep.put("name", d.getName());
+                        dep.put("property", d.getProperty());
+                        deps.put(dep);
+                    }
+                    co.put("dependencies", deps);
+                }
+                components.put(c.getName(), co);
+            }
+            jo.put("components", components);
+            try (Writer writer = new BufferedWriter(new FileWriter(outputFile.toFile()))){
+                jo.write(writer, 1, 1);
+            }
+        } catch (Exception e) {
+            Util.rethrow(e);
+        }
+    }
+
 }
