@@ -1,5 +1,8 @@
 package org.overbaard.ci.multi.repo.generator;
 
+import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_PATH;
+import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.OB_ISSUE_DATA_JSON_VAR_NAME;
+
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -7,8 +10,13 @@ import java.util.Map;
  * @author <a href="mailto:kabir.khan@jboss.com">Kabir Khan</a>
  */
 public class GrabProjectVersionStepBuilder {
+    private String componentName;
     private String envVarName;
 
+    public GrabProjectVersionStepBuilder setComponentName(String componentName) {
+        this.componentName = componentName;
+        return this;
+    }
 
     public GrabProjectVersionStepBuilder setEnvVarName(String envVarName) {
         this.envVarName = envVarName;
@@ -29,6 +37,16 @@ public class GrabProjectVersionStepBuilder {
         // it is a convenience when there is a component job template so that people know where to copy files
         // and so on
         bash.append(String.format("echo \"::set-env name=%s::${TMP}\"\n", GitHubActionGenerator.OB_PROJECT_VERSION_VAR_NAME));
+
+        if (componentName != null) {
+            // Update the json file with the version
+            bash.append("tmpfile=$(mktemp)\n");
+            bash.append("jq --arg version \"${TMP}\" '.components[\"" + componentName + "\"].version=$version' "
+                    + "\"${" + OB_ISSUE_DATA_JSON_VAR_NAME + "}\" > \"${tmpfile}\"\n");
+            bash.append("mv \"${tmpfile}\" \"${" + OB_ISSUE_DATA_JSON_VAR_NAME + "}\"\n");
+        }
+
+
 
         Map<String, Object> cmd = new LinkedHashMap<>();
         cmd.put("name", "Grab project version");

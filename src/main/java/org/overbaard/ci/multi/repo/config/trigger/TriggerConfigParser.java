@@ -1,6 +1,6 @@
 package org.overbaard.ci.multi.repo.config.trigger;
 
-import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_FILE;
+import static org.overbaard.ci.multi.repo.generator.GitHubActionGenerator.ISSUE_DATA_JSON_PATH;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -15,7 +15,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -28,7 +27,7 @@ import org.yaml.snakeyaml.Yaml;
  */
 public class TriggerConfigParser extends BaseParser {
     private final Path yamlFile;
-    private static final Path outputFile = ISSUE_DATA_JSON_FILE.toAbsolutePath();
+    private static final Path outputFile = ISSUE_DATA_JSON_PATH.toAbsolutePath();
 
     private TriggerConfigParser(Path yamlFile) {
         this.yamlFile = yamlFile;
