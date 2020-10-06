@@ -1,11 +1,21 @@
 package org.overbaard.ci.multi.repo.config;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.Reader;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.junit.Assert;
 import org.junit.Test;
 import org.overbaard.ci.multi.repo.config.trigger.Component;
@@ -21,7 +31,6 @@ public class TriggerConfigParserTest {
         URL url = this.getClass().getResource("issue-test.yml");
         Path path = Paths.get(url.toURI());
         TriggerConfig triggerConfig = TriggerConfigParser.create(path).parse();
-
         Assert.assertNotNull(triggerConfig);
 
         Map<String, String> env = triggerConfig.getEnv();
@@ -54,5 +63,50 @@ public class TriggerConfigParserTest {
         Assert.assertEquals(1, wfElytron.getDependencies().size());
         Assert.assertEquals("wildfly-common", wfElytron.getDependencies().get(0).getName());
         Assert.assertEquals("version.wildfly.common", wfElytron.getDependencies().get(0).getProperty());
+
+        JSONObject expectedJson = readJson(Paths.get(this.getClass().getResource("expected-issue-data.json").toURI()));
+        JSONObject writtenJson = readJson(Paths.get("issue-data.json"));
+        compareJsonObjects(expectedJson, writtenJson);
     }
+
+    private JSONObject readJson(Path path) throws IOException  {
+        try (Reader reader = new BufferedReader(new FileReader(path.toFile()))) {
+            JSONTokener jt = new JSONTokener(reader);
+            return new JSONObject(jt);
+        }
+    }
+
+
+    private void compareJsonObjects(JSONObject expected, JSONObject actual) {
+        Set<String> expectedKeys = expected.keySet();
+        Set<String> actualKeys = actual.keySet();
+
+        Assert.assertEquals(expectedKeys, actualKeys);
+
+        for (String key : expectedKeys) {
+            Object expectedObject = expected.get(key);
+            Object actualObject = actual.get(key);
+            compareReadJsonObjects(expectedObject, actualObject);
+        }
+    }
+
+    private void compareJsonArrays(JSONArray expectedObject, JSONArray actualObject) {
+        Assert.assertEquals(expectedObject.length(), actualObject.length());
+        List<Object> expectedList = expectedObject.toList();
+        List<Object> actualList = actualObject.toList();
+        for (int i = 0; i < expectedList.size(); i++) {
+            compareReadJsonObjects(expectedList.get(i), actualList.get(i));
+        }
+    }
+
+    private void compareReadJsonObjects(Object expectedObject, Object actualObject) {
+        if (expectedObject instanceof JSONObject && actualObject instanceof JSONObject) {
+            compareJsonObjects((JSONObject)expectedObject, (JSONObject)actualObject);
+        } else if (expectedObject instanceof JSONArray && actualObject instanceof JSONArray) {
+            compareJsonArrays((JSONArray)expectedObject, (JSONArray)actualObject);
+        } else {
+            Assert.assertEquals(expectedObject, actualObject);
+        }
+    }
+
 }

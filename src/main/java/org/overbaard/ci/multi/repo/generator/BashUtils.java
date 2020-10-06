@@ -7,4 +7,5 @@ public class BashUtils {
     static String createDirectoryIfNotExist(String directoryName) {
         return "mkdir -p " + directoryName + "\n";
     }
+
 }

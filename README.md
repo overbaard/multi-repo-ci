@@ -331,6 +331,13 @@ before this component. So, e.g if the component was configured to depend on `my-
 the resulting variable name will be `OB_VERSION_MY_COMPONENT`.
 * `${$OB_STATUS_TEXT}`- Location of a file whose contents will be appended to the issue
 comment once the workflow is done (if you configured issue comments to be made).
+* `${OB_ISSUE_DATA_JSON}` - This initially contains the information from the issue body
+that was used to trigger the job. It is a json file, which later jobs may modify, e.g. by
+using `jq` from the command-line. Each component build job will add to this file so that
+each component additionally contains `version` (showing the determined SNAPSHOT version)
+and `sha` (showing the determined SHA-1 of the branch used for the component) entries.
+Additionally, the example [ci.yml](./ci.yml) adds information about the url of the issue
+that triggered the workflow, as well as the user who made the change.
 
 ## End jobs
 In both the custom component build configuration files (e.g. `.repo-config/component-jobs/<component-name>.yml`) 
@@ -403,7 +410,7 @@ To add a workflow end job, you define it in the same way as you would define a c
 end job, but this time you define it in `.repo-config/config.yml`. You end up with a lighter 
 environment than you did before:
 * Java is set up
-* You have access to the `OB_ISSUE_ID`, OB_ARTIFACTS_DIR`, `${$OB_STATUS_TEXT}` and the
+* You have access to the `OB_ISSUE_ID`, OB_ARTIFACTS_DIR`, `$OB_STATUS_TEXT`, `OB_ISSUE_DATA_JSON` and the
 `OB_VERSION_<COMPONENT_NAME>` environment variables as [mentioned previously](#custom-component-build-vars)
   * The `$OB_ARTIFACTS_DIR` is populated with whatever files we put into there earlier. Note 
   that copying anything into `$OB_ARTIFACTS_DIR` at this stage is possible but has no effect

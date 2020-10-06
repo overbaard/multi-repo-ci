@@ -50,9 +50,14 @@ public class GitHubActionGenerator {
     public static final String OB_ARTIFACTS_DIRECTORY_NAME = "artifacts";
     public static final String OB_STATUS_VAR_NAME = "OB_STATUS_TEXT";
     public static final String OB_STATUS_RELATIVE_PATH = OB_ARTIFACTS_DIRECTORY_NAME + "/status-text.txt";
+    public static final String OB_ISSUE_DATA_JSON_VAR_NAME = "OB_ISSUE_DATA_JSON";
+    public static final String OB_ISSUE_DATA_JSON = "issue-data.json";
     final static String STATUS_OUTPUT_JOB_NAME = "ob-ci-read-status-output";
     final static String STATUS_OUTPUT_OUTPUT_VAR_NAME = "status-output";
     final static String STATUS_OUTPUT_OUTPUT_REF = "needs." + STATUS_OUTPUT_JOB_NAME + ".outputs." + STATUS_OUTPUT_OUTPUT_VAR_NAME;
+
+    public final static Path ISSUE_DATA_JSON_PATH = Paths.get(OB_ISSUE_DATA_JSON);
+
 
     private static final String ARG_WORKFLOW_DIR = "--workflow-dir";
     private static final String ARG_YAML = "--yaml";
@@ -99,10 +104,6 @@ public class GitHubActionGenerator {
         this.yamlConfig = yamlConfig;
         this.branchName = branchName;
         this.issueNumber = issueNumber;
-    }
-
-    public Path getYamlConfig() {
-        return yamlConfig;
     }
 
     static void generate(String[] args) throws Exception {
@@ -406,10 +407,12 @@ public class GitHubActionGenerator {
         if (context.isBuildJob()) {
             steps.add(
                     new GrabProjectVersionStepBuilder()
+                            .setComponentName(component.getName())
                             .setEnvVarName(getInternalVersionEnvVarName(component.getName()))
                             .build());
             steps.add(
                 new GitRevParseIntoOutputVariableStepBuilder(REV_PARSE_STEP_ID, REV_PARSE_STEP_OUTPUT)
+                    .setComponentName(component.getName())
                     .build());
         }
 
@@ -502,6 +505,7 @@ public class GitHubActionGenerator {
 
         env.put(OB_ARTIFACTS_DIRECTORY_VAR_NAME, OB_ARTIFACTS_DIRECTORY_NAME);
         env.put(OB_STATUS_VAR_NAME, OB_STATUS_RELATIVE_PATH);
+        env.put(OB_ISSUE_DATA_JSON_VAR_NAME, OB_ISSUE_DATA_JSON);
 
         for (String key : job.keySet()) {
             if (!key.equals("env") && !key.equals("steps")) {
@@ -795,6 +799,7 @@ public class GitHubActionGenerator {
         public Map<String, String> createEnv() {
             Map<String, String> env = new LinkedHashMap<>();
             addComponentVersionEnvVars(env);
+            env.put(OB_ISSUE_DATA_JSON_VAR_NAME, CI_TOOLS_CHECKOUT_FOLDER + "/" + OB_ISSUE_DATA_JSON);
             return env;
         }
 

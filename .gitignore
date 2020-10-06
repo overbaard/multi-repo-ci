@@ -64,3 +64,6 @@ client/shade/dependency-reduced-pom.xml
 
 __throwaway.yml
 .repo-config/
+
+# Created by the tests
+issue-data.json
