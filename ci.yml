@@ -43,9 +43,23 @@ jobs:
         echo "${issue_body}" > config.yml
         echo config.yml contents
         cat config.yml
-        java -jar ${TOOL_JAR} generate-workflow --workflow-dir=.github/workflows --yaml=config.yml --issue=${{ github.event.issue.number }} --branch=$BRANCH
+        java -jar ${TOOL_JAR} generate-workflow --workflow-dir=.github/workflows --yaml=config.yml --issue=${issue_id} --branch=$BRANCH
+        
+        # Update the issue-data.json created by the tool to:
+        # - contain the user who updated the issue
+        TMP=${{ github.actor }}
+        tmpfile=$(mktemp)
+        jq --arg user "${TMP}" '.["trigger"]["user"]=$user' issue-data.json > "${tmpfile}"
+        mv "${tmpfile}" issue-data.json
+        # - contain the url of the issue triggering the workflow 
+        TMP=${{ github.event.issue.url }}
+        tmpfile=$(mktemp)
+        jq --arg url "${TMP}" '.["trigger"]["issue"]=$url' issue-data.json > "${tmpfile}" 
+        mv "${tmpfile}" issue-data.json        
+        
         # Make sure .gitignore exists and that it contains .ci-tools as the generated workflow clones the
-        # branch containing it into a sub-folder with this name, which in turn gives some warnings
+        # branch containing it into a sub-folder with this name, which in turn gives some warnings if
+        # we don't ignore that sub-folder
         if [[ ! -f .gitignore ]]; then
           # Make sure .gitignore exists
           touch .gitignore
@@ -54,6 +68,8 @@ jobs:
           # Add .ci-tools to .gitignore
           echo .ci-tools >> .gitignore
         fi
+        
+        # Commit and push the workflow to the branch
         git add -A
         git commit -m "Testing file for #${issue_id} - ${{ github.event.issue.title }}"
         git push --force origin "${BRANCH}"
