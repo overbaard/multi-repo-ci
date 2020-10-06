@@ -18,39 +18,41 @@ the components involved. The repository in which you create the issue, must have
 had this set up. Here is an example for the 
 [WildFly](http://github.com/wildfly/wildfly) project:
 
-```
-name: XNIO and Remoting
-env:
-  # We can set env vars which will get used by the resulting workflow
-  MY_VAR: Hello!!
-components:
-  - name: xnio
-    org: kabir
-    branch: '3.8'
-    mavenOpts: -DskipTests
-  - name: jboss-remoting
-    org: jboss-remoting
-    branch: '5.0'
-    mavenOpts: -DskipTests
-    java-version: 8
-    dependencies:
+    ```
+    name: XNIO and Remoting
+    env:
+      # We can set env vars which will get used by the resulting workflow
+      MY_VAR: Hello!!
+    components:
       - name: xnio
-        property: xnio.version
-  - name: wildfly-core
-    org: wildfly
-    branch: master
-    dependencies:
-      - name: xnio
-        property: version.org.jboss.xnio
+        org: kabir
+        branch: '3.8'
+        mavenOpts: -DskipTests
       - name: jboss-remoting
-        property: version.org.jboss.remoting
-  - name: wildfly
-    org: wildfly
-    branch: master
-    dependencies:
+        org: jboss-remoting
+        branch: '5.0'
+        mavenOpts: -DskipTests
+        java-version: 8
+        dependencies:
+          - name: xnio
+            property: xnio.version
       - name: wildfly-core
-        property: version.org.wildfly.core
-```
+        org: wildfly
+        branch: master
+        dependencies:
+          - name: xnio
+            property: version.org.jboss.xnio
+          - name: jboss-remoting
+            property: version.org.jboss.remoting
+      - name: wildfly
+        org: wildfly
+        branch: master
+        dependencies:
+          - name: wildfly-core
+            property: version.org.wildfly.core
+    ```
+
+
 This yaml defines a CI run for a job spanning four components. For each component 
 we define:
 * The name of the component repository
