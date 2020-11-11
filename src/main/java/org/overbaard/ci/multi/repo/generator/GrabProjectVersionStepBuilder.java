@@ -36,7 +36,7 @@ public class GrabProjectVersionStepBuilder {
         // Make the project version available to other steps in the workflow
         // it is a convenience when there is a component job template so that people know where to copy files
         // and so on
-        bash.append(String.format("echo \"::set-env name=%s::${TMP}\"\n", GitHubActionGenerator.OB_PROJECT_VERSION_VAR_NAME));
+        bash.append(BashUtils.setEnvVar(GitHubActionGenerator.OB_PROJECT_VERSION_VAR_NAME, "${TMP}"));
 
         if (componentName != null) {
             // Update the json file with the version

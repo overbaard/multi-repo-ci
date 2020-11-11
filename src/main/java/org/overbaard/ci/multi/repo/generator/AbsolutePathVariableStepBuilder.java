@@ -18,7 +18,7 @@ public class AbsolutePathVariableStepBuilder {
         command.put("name", "Make " + variableName + " an absolute path");
         StringBuilder run = new StringBuilder();
         run.append(
-                String.format("echo \"::set-env name=%s::${GITHUB_WORKSPACE}/${%s}\"", variableName, variableName));
+                BashUtils.setEnvVar(variableName, String.format("${GITHUB_WORKSPACE}/${%s}", variableName)));
 
         command.put("run", run.toString());
 

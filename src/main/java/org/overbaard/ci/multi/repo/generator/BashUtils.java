@@ -8,4 +8,8 @@ public class BashUtils {
         return "mkdir -p " + directoryName + "\n";
     }
 
+    static String setEnvVar(String envVar, String value) {
+        return String.format("echo \"%s=%s\" >> $GITHUB_ENV\n", envVar, value);
+    }
+
 }

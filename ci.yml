@@ -27,7 +27,7 @@ jobs:
     - name: Download multi-repo-ci-tool.jar
       run: |
         wget http://github.com/overbaard/multi-repo-ci/releases/latest/download/multi-repo-ci-tool.jar
-        echo "::set-env name=TOOL_JAR::multi-repo-ci-tool.jar"
+        echo "TOOL_JAR=multi-repo-ci-tool.jar" >> $GITHUB_ENV
 
     - name: Create branch
       env: 
