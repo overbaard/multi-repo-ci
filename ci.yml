@@ -1,7 +1,7 @@
 # Workflow to kick off a cross component build
 # It creates a branch with a generated action
 
-name: CI
+name: Cross Component CI Generator
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the master branch
@@ -71,7 +71,7 @@ jobs:
         
         # Commit and push the workflow to the branch
         git add -A
-        git commit -m "Testing file for #${issue_id} - ${{ github.event.issue.title }}"
+        git commit -m "Generated Workflow: #${issue_id} - ${{ github.event.issue.title }}"
         git push --force origin "${BRANCH}"
 
     - name: Report failure
