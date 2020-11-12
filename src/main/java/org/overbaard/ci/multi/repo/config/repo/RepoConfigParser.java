@@ -108,14 +108,18 @@ public class RepoConfigParser extends BaseParser {
         }
 
         Map<String, Object> endJob = preParseEndJob(endJobInput);
-        endJob.put("env", mergeEnv(env, (Map<String, String>)endJob.get("env")));
-        // Understand this better
-//        if (endJob.get("java-version") == null) {
-//            endJob.put("java-version", javaVersion);
-//        }
-        if (endJob.get("runs-on") == null) {
-            List<String> ro = runsOn != null ? runsOn : RepoConfig.DEFAULT_RUNS_ON;
-            endJob.put("runs-on", ro);
+        if (endJob != null) {
+            endJob.put("env", mergeEnv(env, (Map<String, String>)endJob.get("env")));
+
+            // Understand this better
+            //        if (endJob.get("java-version") == null) {
+            //            endJob.put("java-version", javaVersion);
+            //        }
+
+            if (endJob.get("runs-on") == null) {
+                List<String> ro = runsOn != null ? runsOn : RepoConfig.DEFAULT_RUNS_ON;
+                endJob.put("runs-on", ro);
+            }
         }
 
         return new RepoConfig(env, javaVersion, runsOn, commentsReporting, successLabel, failureLabel, endJob);
