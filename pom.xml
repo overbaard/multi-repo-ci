@@ -11,7 +11,7 @@
 
     <groupId>org.overbaard.ci</groupId>
     <artifactId>multi-repo-ci</artifactId>
-    <version>1.0.0.Alpha3</version>
+    <version>1.0.0.Alpha4-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <properties>
