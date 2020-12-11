@@ -309,7 +309,7 @@ public class GitHubActionGenerator {
         if (component.getMavenOpts() != null) {
             throw new IllegalStateException(component.getName() +
                     " defines mavenOpts but has a component job file at " + componentJobsFile +
-                    ". Remove mavenOpts and configure the job in the compponent job file.");
+                    ". Remove mavenOpts and configure the job in the component job file.");
         }
         componentJobsConfigs.put(component.getName(), config);
         List<ComponentJobConfig> componentJobConfigs = config.getJobs();
