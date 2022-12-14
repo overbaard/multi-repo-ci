@@ -17,7 +17,7 @@
     <properties>
         <version.json>20200518</version.json>
         <version.maven>3.6.3</version.maven>
-        <version.snakeyml>1.25</version.snakeyml>
+        <version.snakeyml>1.32</version.snakeyml>
         <version.junit>4.12</version.junit>
     </properties>
 
