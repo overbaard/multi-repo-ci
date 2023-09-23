@@ -10,15 +10,17 @@ public class Component {
     private final String org;
     private final String branch;
     private final String mavenOpts;
+    private final String mavenSetup;
     private final boolean debug;
     private final String javaVersion;
     private final List<Dependency> dependencies;
 
-    Component(String name, String org, String branch, String mavenOpts, boolean debug, String javaVersion, List<Dependency> dependencies) {
+    Component(String name, String org, String branch, String mavenOpts, String mavenSetup, boolean debug, String javaVersion, List<Dependency> dependencies) {
         this.name = name;
         this.org = org;
         this.branch = branch;
         this.mavenOpts = mavenOpts;
+        this.mavenSetup = mavenSetup;
         this.debug = debug;
         this.javaVersion = javaVersion;
         this.dependencies = dependencies;
@@ -38,6 +40,10 @@ public class Component {
 
     public String getMavenOpts() {
         return mavenOpts;
+    }
+
+    public String getMavenSetup() {
+        return mavenSetup;
     }
 
     public boolean isDebug() {

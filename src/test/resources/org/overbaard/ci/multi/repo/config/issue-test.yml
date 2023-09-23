@@ -9,6 +9,7 @@ components:
     branch: master
     debug: true
     java-version: 15
+    mavenSetup: versions:update-parent -DallowSnapshots=true
   - name: wildfly-elytron
     org: kabir
     branch: feature

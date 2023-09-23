@@ -311,6 +311,11 @@ public class GitHubActionGenerator {
                     " defines mavenOpts but has a component job file at " + componentJobsFile +
                     ". Remove mavenOpts and configure the job in the component job file.");
         }
+        if (component.getMavenSetup() != null) {
+            throw new IllegalStateException(component.getName() +
+                    " defines mavenSetup but has a component job file at " + componentJobsFile +
+                    ". Remove mavenSetup and configure the job in the component job file.");
+        }
         componentJobsConfigs.put(component.getName(), config);
         List<ComponentJobConfig> componentJobConfigs = config.getJobs();
         for (ComponentJobConfig componentJobConfig : componentJobConfigs) {
@@ -829,10 +834,20 @@ public class GitHubActionGenerator {
 
         @Override
         List<Map<String, Object>> createBuildSteps() {
-            return Collections.singletonList(
-                    new MavenBuildStepBuilder()
+            List<Map<String, Object>> result = new ArrayList<>(2);
+            String mavenSetup = component.getMavenSetup();
+            if (mavenSetup != null) {
+                result.add(
+                        new MavenBuildStepBuilder(mavenSetup)
+                                .build()
+                );
+            }
+            result.add(
+                    new MavenBuildStepBuilder("install")
                             .setOptions(getMavenOptions(component))
-                            .build());
+                            .build()
+            );
+            return result;
         }
 
         private String getMavenOptions(Component component) {

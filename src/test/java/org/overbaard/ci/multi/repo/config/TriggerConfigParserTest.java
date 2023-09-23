@@ -47,6 +47,7 @@ public class TriggerConfigParserTest {
         Assert.assertEquals("wildfly", wfCommon.getOrg());
         Assert.assertEquals("master", wfCommon.getBranch());
         Assert.assertNull(wfCommon.getMavenOpts());
+        Assert.assertEquals("versions:update-parent -DallowSnapshots=true", wfCommon.getMavenSetup());
         Assert.assertNotNull(wfCommon.getDependencies());
         Assert.assertTrue(wfCommon.isDebug());
         Assert.assertEquals("15", wfCommon.getJavaVersion());
@@ -57,6 +58,7 @@ public class TriggerConfigParserTest {
         Assert.assertEquals("kabir", wfElytron.getOrg());
         Assert.assertEquals("feature", wfElytron.getBranch());
         Assert.assertEquals("-DskipTests -Dhello=true", wfElytron.getMavenOpts());
+        Assert.assertNull(wfElytron.getMavenSetup());
         Assert.assertFalse(wfElytron.isDebug());
         Assert.assertNull(wfElytron.getJavaVersion());
         Assert.assertNotNull(wfElytron.getDependencies());
