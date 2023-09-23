@@ -50,6 +50,7 @@ public class TriggerConfigParserTest {
         Assert.assertNotNull(wfCommon.getDependencies());
         Assert.assertTrue(wfCommon.isDebug());
         Assert.assertEquals("15", wfCommon.getJavaVersion());
+        Assert.assertEquals("40-SNAPSHOT", wfCommon.getParentVersion());
         Assert.assertEquals(0, wfCommon.getDependencies().size());
 
         Component wfElytron = components.get(1);
@@ -59,6 +60,7 @@ public class TriggerConfigParserTest {
         Assert.assertEquals("-DskipTests -Dhello=true", wfElytron.getMavenOpts());
         Assert.assertFalse(wfElytron.isDebug());
         Assert.assertNull(wfElytron.getJavaVersion());
+        Assert.assertNull(wfElytron.getParentVersion());
         Assert.assertNotNull(wfElytron.getDependencies());
         Assert.assertEquals(1, wfElytron.getDependencies().size());
         Assert.assertEquals("wildfly-common", wfElytron.getDependencies().get(0).getName());

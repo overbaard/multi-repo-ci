@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.overbaard.ci.multi.repo.Main;
 import org.overbaard.ci.multi.repo.ToolCommand;
@@ -832,6 +833,7 @@ public class GitHubActionGenerator {
             return Collections.singletonList(
                     new MavenBuildStepBuilder()
                             .setOptions(getMavenOptions(component))
+                            .setParentVersion(component.getParentVersion())
                             .build());
         }
 
@@ -923,11 +925,18 @@ public class GitHubActionGenerator {
                 Map<String, Object> build = new HashMap<>();
                 build.put("name", "Maven Build");
                 StringBuilder sb = new StringBuilder();
+                AtomicBoolean firstMaven = new AtomicBoolean(true);
                 for (JobRunElementConfig cfg : runElementConfigs) {
                     if (cfg.getType() == JobRunElementConfig.Type.SHELL) {
                         sb.append(cfg.getCommand());
                         sb.append("\n");
                     } else {
+                        if (component.getParentVersion() != null && firstMaven.getAndSet(false)) {
+                            // Add a step to update the parent before the first maven step.
+                            sb.append("mvn -B versions:update-parent -DskipResolution -DparentVersion=");
+                            sb.append(component.getParentVersion());
+                            sb.append("\n");
+                        }
                         sb.append("mvn -B ");
                         sb.append(cfg.getCommand());
                         sb.append(" ");
