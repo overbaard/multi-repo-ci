@@ -13,6 +13,9 @@ has been set up. This in turn results in a generated workflow to run the testsui
 ----------
 
 # User Guide
+
+## Triggering a CI Run
+
 To have CI run for your feature, you create a GitHub issue with YAML to define 
 the components involved. The repository in which you create the issue, must have 
 had this set up. Here is an example for the 
@@ -95,6 +98,40 @@ In addition to the dependencies, you can tweak the maven build further by using
 the `mavenOpts` attribute. For xnio and jboss-remoting we have passed 
 in `-DskipTests`. In those builds, that means that tests will not be run.
 
+The version property-based mechanism described previously cannot work for testing an updated version of a project's parent, as a project parent must be statically defined in the project pom, and cannot be based on a maven property. To allow testing with updated versions of a parent, in the target component's definition you can use the `parent-version` property, set to the desired parent version. For example:
+
+    ```
+    name: JBoss Parent
+    components:
+      - name: jboss-parent-pom
+        org: jboss
+        branch: 'main'
+        mavenOpts: -DskipTests
+      - name: xnio
+        org: kabir
+        branch: '3.8'
+        mavenOpts: -DskipTests
+        parent-version: 40-SNAPSHOT
+        dependencies:
+          - name: jboss-parent-pom
+            property: unused.placeholder
+      - name: jboss-remoting
+        org: jboss-remoting
+        branch: '5.0'
+        mavenOpts: -DskipTests
+        java-version: 8
+        parent-version: 40-SNAPSHOT
+        dependencies:
+          - name: xnio
+            property: xnio.version
+    ```
+
+Here we first build a snapshot of the parent project `jboss-parent-pom`, and then in the `xnio` and `jboss-remoting` components we use `parent-version: 40-SNAPSHOT` to indicate we want those component's parent updated the `40-SNAPSHOT` before any maven task is executed.
+
+Note the inelegant declaration in the `xnio` component of a dependency on the `jboss-parent-pom` component. This, like other dependency declarations, ensures that `jboss-parent-pom` is built first, making `40-SNAPSHOT` available. The inelegant bit is the `property: unused.placeholder` attribute, which is declared because `property` must be set to something. A meaningless value is used, which will result in the inclusion of a harmless but pointless`-Dunused.placeholder=40-SNAPSHOT` being passed to the maven build of `xnio`.
+
+## Execution of the CI Run
+
 Once GitHub Actions has picked up the issue, it will run a generator job 
 (implemented by the code in the repository it has been set up for) which will generate a workflow YAML. 
 This workflow YAML is pushed using the name `.github/workflows/ci-<issue id>.yaml` to a branch 
@@ -120,7 +157,7 @@ In addition when viewing the workflow, the build logs for each job are available
 via the GitHub Actions UI.
 
 ---------
-# Install Guide
+# Installation Guide
 This section outlines how an organisation administrator would prepare a repository 
 for use with this tooling.
 

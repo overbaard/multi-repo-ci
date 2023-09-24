@@ -118,11 +118,15 @@ public class TriggerConfigParser extends BaseParser {
         Object mavenOpts = map.remove("mavenOpts");
         Object debugInput = map.remove("debug");
         Object javaVersionInput = map.remove("java-version");
+        Object parentVersion = map.remove("parent-version");
         validateNotNullType(String.class, name, "name", "a components entry");
         validateNotNullType(String.class, org, "org", "a components entry");
         validateNotNullType(String.class, branch, "branch", "a components entry");
         if (mavenOpts != null) {
             validateType(String.class, mavenOpts, "mavenOpts", "a components entry");
+        }
+        if (parentVersion != null) {
+            validateType(String.class, parentVersion, "parent-version", "a components entry");
         }
         boolean debug = false;
         if (debugInput != null) {
@@ -151,6 +155,7 @@ public class TriggerConfigParser extends BaseParser {
                 (String) mavenOpts,
                 debug,
                 javaVersion,
+                (String) parentVersion,
                 Collections.unmodifiableList(dependencies));
         components.put(component.getName(), component);
     }
